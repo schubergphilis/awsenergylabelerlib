@@ -70,7 +70,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'''awsenergylabelerlib'''
-copyright = u'''2021, (Author : Costas Tyfoxylos, Jenda Brands, Theodoor Scholte)'''
+copyright = u'''2021, (Author : Costas Tyfoxylos)'''
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
@@ -225,7 +225,7 @@ latex_elements = {
 latex_documents = [
     ('index', '''awsenergylabelerlib.tex''',
      u'''awsenergylabelerlib Documentation''',
-     u'''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte''', 'manual'),
+     u'''Costas Tyfoxylos''', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at
@@ -256,7 +256,7 @@ latex_documents = [
 man_pages = [
     ('index', '''awsenergylabelerlib''',
      u'''awsenergylabelerlib Documentation''',
-     [u'''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''], 1)
+     [u'''Costas Tyfoxylos'''], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -271,7 +271,7 @@ man_pages = [
 texinfo_documents = [
     ('index', '''awsenergylabelerlib''',
      u'''awsenergylabelerlib Documentation''',
-     u'''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte''',
+     u'''Costas Tyfoxylos''',
      '''awsenergylabelerlib''',
      'One line description of project.',
      'Miscellaneous'),

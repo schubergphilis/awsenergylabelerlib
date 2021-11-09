@@ -30,8 +30,8 @@ setup(
     version=version,
     description='''Project energy labeling accounts and landing zone based on findings of Security Hub in AWS cloud.''',
     long_description=readme + '\n\n' + history,
-    author='''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte''',
-    author_email='''ctyfoxylos@schubergphilis.com, jbrands@schubergphilis.com, tscholte@schubergphilis.com''',
+    author='''Costas Tyfoxylos''',
+    author_email='''ctyfoxylos@schubergphilis.com''',
     url='''ghttps://github.com/schubergphilis/awsenergylabelerlib.git''',
     packages=find_packages(where='.', exclude=('tests', 'hooks', '_CI*')),
     package_dir={'''awsenergylabelerlib''':

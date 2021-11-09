@@ -42,16 +42,14 @@ from .configuration import ACCOUNT_THRESHOLDS, LANDING_ZONE_THRESHOLDS, SECURITY
 from .entities import SecurityHub, LandingZone
 from .schemas import account_thresholds_schema, security_hub_filter_schema, landing_zone_thresholds_schema
 
-__author__ = ('Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>, '
-              'Jenda Brands <jbrands@schubergphilis.com>, '
-              'Theodoor Scholte <tscholte@schubergphilis.com>')
+__author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
 __copyright__ = '''Copyright 2021, Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
 __credits__ = ["Costas Tyfoxylos", "Jenda Brands", "Theodoor Scholte"]
 __license__ = '''MIT'''
-__maintainer__ = '''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
-__email__ = '''<ctyfoxylos@schubergphilis.com>, <jbrands@schubergphilis.com>, <tscholte@schubergphilis.com>'''
+__maintainer__ = '''Costas Tyfoxylos'''
+__email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
 
