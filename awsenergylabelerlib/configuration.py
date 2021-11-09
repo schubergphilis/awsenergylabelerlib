@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# File: __init__.py
+# File: configuration.py
 #
 # Copyright 2021 Costas Tyfoxylos, Jenda Brands, Theodoor Scholte
 #
@@ -24,14 +24,14 @@
 #
 
 """
-awsenergylabelerlib package.
+configuration package.
 
-Import all parts from awsenergylabelerlib here
+Import all parts from configuration here
 
 .. _Google Python Style Guide:
    http://google.github.io/styleguide/pyguide.html
 """
-from ._version import __version__
+
 
 __author__ = ('Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>, '
               'Jenda Brands <jbrands@schubergphilis.com>, '
@@ -44,5 +44,46 @@ __maintainer__ = '''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>, <jbrands@schubergphilis.com>, <tscholte@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-# This is to 'use' the module(s), so lint doesn't complain
-assert __version__
+
+ACCOUNT_THRESHOLDS = [{'label': 'A',
+                       'critical_high': 0,
+                       'medium': 10,
+                       'low': 20,
+                       'days_open_less_than': 15},
+                      {'label': 'B',
+                       'critical_high': 10,
+                       'medium': 20,
+                       'low': 40,
+                       'days_open_less_than': 30},
+                      {'label': 'C',
+                       'critical_high': 15,
+                       'medium': 30,
+                       'low': 60,
+                       'days_open_less_than': 60},
+                      {'label': 'D',
+                       'critical_high': 20,
+                       'medium': 40,
+                       'low': 80,
+                       'days_open_less_than': 90},
+                      {'label': 'E',
+                       'critical_high': 25,
+                       'medium': 50,
+                       'low': 100,
+                       'days_open_less_than': 120}
+                      ]
+
+LANDING_ZONE_THRESHOLDS = [{'label': 'A',
+                            'percentage': 90},
+                           {'label': 'B',
+                            'percentage': 70},
+                           {'label': 'C',
+                            'percentage': 50},
+                           {'label': 'D',
+                            'percentage': 30},
+                           {'label': 'E',
+                            'percentage': 20}
+                           ]
+
+SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
+                                                    'Unit': 'DAYS'}}
+                                     ]}

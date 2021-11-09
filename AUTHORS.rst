@@ -5,7 +5,9 @@ Credits
 Development Lead
 ----------------
 
-* Costas Tyfoxylos, Jenda Brands, Theodoor Scholte <ctyfoxylos@schubergphilis.com, jbrands@schubergphilis.com, tscholte@schubergphilis.com>
+* Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>
+* Jenda Brands <jbrands@schubergphilis.com>
+* Theodoor Scholte <tscholte@schubergphilis.com>
 
 Contributors
 ------------

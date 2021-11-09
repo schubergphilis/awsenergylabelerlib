@@ -32,15 +32,26 @@ Main code for awsenergylabelerlib.
 """
 
 import logging
+import re
+from collections import Counter
 
-__author__ = '''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte <ctyfoxylos@schubergphilis.com, jbrands@schubergphilis.com, tscholte@schubergphilis.com>'''
+import pandas as pd
+
+from .awsenergylabelerlibexceptions import InvalidAccountListProvided, MutuallyExclusiveArguments
+from .configuration import ACCOUNT_THRESHOLDS, LANDING_ZONE_THRESHOLDS, SECURITY_HUB_FILTER
+from .entities import SecurityHub, LandingZone
+from .schemas import account_thresholds_schema, security_hub_filter_schema, landing_zone_thresholds_schema
+
+__author__ = ('Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>, '
+              'Jenda Brands <jbrands@schubergphilis.com>, '
+              'Theodoor Scholte <tscholte@schubergphilis.com>')
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
 __copyright__ = '''Copyright 2021, Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
-__credits__ = ["Costas Tyfoxylos, Jenda Brands, Theodoor Scholte"]
+__credits__ = ["Costas Tyfoxylos", "Jenda Brands", "Theodoor Scholte"]
 __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
-__email__ = '''<ctyfoxylos@schubergphilis.com, jbrands@schubergphilis.com, tscholte@schubergphilis.com>'''
+__email__ = '''<ctyfoxylos@schubergphilis.com>, <jbrands@schubergphilis.com>, <tscholte@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
 
@@ -48,3 +59,125 @@ __status__ = '''Development'''  # "Prototype", "Development", "Production".
 LOGGER_BASENAME = '''awsenergylabelerlib'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
+
+
+class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-arguments
+    """Labeling accounts and landing zone based on findings and label configurations."""
+
+    def __init__(self,
+                 landing_zone_name,
+                 region=None,
+                 frameworks=('cis', 'aws-foundational-security-best-practices'),
+                 landing_zone_thresholds=None,
+                 account_thresholds=None,
+                 security_hub_filter=None,
+                 allow_list=None,
+                 deny_list=None):
+        if all([allow_list, deny_list]):
+            raise MutuallyExclusiveArguments('allow_list and deny_list are mutually exclusive.')
+        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds) if \
+            landing_zone_thresholds else LANDING_ZONE_THRESHOLDS
+        self.account_thresholds = account_thresholds_schema.validate(account_thresholds) if account_thresholds \
+            else ACCOUNT_THRESHOLDS
+        self.security_hub_filter = security_hub_filter_schema.validate(security_hub_filter) if security_hub_filter \
+            else SECURITY_HUB_FILTER
+        self.allow_list = self._validate_account_ids(allow_list) if allow_list else []
+        self.deny_list = self._validate_account_ids(deny_list) if deny_list else []
+        self.landing_zone_name = landing_zone_name
+        self._security_hub = SecurityHub(query_filter=self.security_hub_filter, region=region)
+        self._landing_zone = LandingZone(landing_zone_name, self.landing_zone_thresholds, self.account_thresholds)
+        self._frameworks = frameworks if self._security_hub.validate_frameworks(frameworks) \
+            else ('cis', 'aws-foundational-security-best-practices')  # pylint: disable=no-member
+        self._account_labels_counter = None
+
+    @property
+    def security_hub_findings(self):
+        """Security hub findings."""
+        return self._security_hub.get_findings_for_frameworks(self._frameworks)  # pylint: disable=no-member
+
+    @property
+    def security_hub_findings_data(self):
+        """Data of security hub findings."""
+        return self._security_hub.get_findings_data_for_frameworks(self._frameworks)  # pylint: disable=no-member
+
+    @staticmethod
+    def _validate_account_ids(accounts):
+
+        def validate_account(account):
+            return all([len(account) == 12, account.isdigit()])
+
+        def validate_accounts(accounts_):
+            return all([validate_account(account) for account in accounts_])
+
+        if not isinstance(accounts, (list, tuple, str)):
+            raise InvalidAccountListProvided(f'Only list, tuple or string of accounts is accepted input, '
+                                             f'received: {accounts}')
+        if isinstance(accounts, str):
+            accounts = [accounts] if validate_account(accounts) else re.split('[^0-9]', accounts)
+        accounts = list({account for account in accounts if account})
+        if not validate_accounts(accounts):
+            raise InvalidAccountListProvided(accounts)
+        return accounts
+
+    def _get_valid_account_ids(self):
+        if self.allow_list:
+            self._logger.debug(f'Working on allow list {self.allow_list}')
+            account_ids = [account.id for account in self._landing_zone.get_allowed_accounts(self.allow_list)]
+        elif self.deny_list:
+            self._logger.debug(f'Working on deny list {self.deny_list}')
+            account_ids = [account.id for account in self._landing_zone.get_not_denied_accounts(self.deny_list)]
+        else:
+            self._logger.debug('Working on all landing zone accounts')
+            account_ids = [account.id for account in self._landing_zone.accounts]
+        return account_ids
+
+    @property
+    def labeled_accounts(self):
+        """Labeled accounts."""
+        self._account_labels_counter = Counter()
+        labeled_accounts = []
+        labels = []
+        self._logger.debug('Retrieving security hub findings')
+        dataframe_findings = pd.DataFrame(self.security_hub_findings_data)
+        valid_account_ids = self._get_valid_account_ids()
+        for account in self._landing_zone.accounts:
+            self._logger.debug(f'Calculating energy label for account {account.id}')
+            labels.append(account.calculate_energy_label(dataframe_findings))
+            if account.id in valid_account_ids:
+                self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
+                labeled_accounts.append(account)
+        self._account_labels_counter.update(labels)
+        return labeled_accounts
+
+    @property
+    def landing_zone_energy_label(self):
+        """Energy label of the landing zone."""
+        self._logger.debug(f'Landing zone accounts labeled are {len(self.labeled_accounts)}')
+        return self._create_energy_label(self._account_labels_counter)
+
+    @property
+    def labeled_accounts_energy_label(self):
+        """Energy label of the labeled accounts."""
+        account_counter = Counter()
+        for account in self.labeled_accounts:
+            account_counter.update(account.energy_label)
+        return self._create_energy_label(account_counter)
+
+    def _create_energy_label(self, accounts_counter):
+        number_of_accounts = sum(accounts_counter.values())
+        self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
+        account_sums = []
+        labels = []
+        calculated_label = "F"
+        for threshold in self.landing_zone_thresholds:
+            label = threshold.get('label')
+            percentage = threshold.get('percentage')
+            labels.append(label)
+            account_sums.append(accounts_counter.get(label, 0))
+            self._logger.debug(f'Calculating for labels {labels} with threshold {percentage} '
+                               f'and sums of {account_sums}')
+            if sum(account_sums) / number_of_accounts * 100 >= percentage:
+                self._logger.debug(f'Found a match with label {label}')
+                calculated_label = label
+        return calculated_label

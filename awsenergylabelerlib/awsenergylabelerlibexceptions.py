@@ -31,12 +31,26 @@ Custom exception code for awsenergylabelerlib.
 
 """
 
-__author__ = '''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte <ctyfoxylos@schubergphilis.com, jbrands@schubergphilis.com, tscholte@schubergphilis.com>'''
+__author__ = ('Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>, '
+              'Jenda Brands <jbrands@schubergphilis.com>, '
+              'Theodoor Scholte <tscholte@schubergphilis.com>')
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
 __copyright__ = '''Copyright 2021, Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
-__credits__ = ["Costas Tyfoxylos, Jenda Brands, Theodoor Scholte"]
+__credits__ = ["Costas Tyfoxylos", "Jenda Brands", "Theodoor Scholte"]
 __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
-__email__ = '''<ctyfoxylos@schubergphilis.com, jbrands@schubergphilis.com, tscholte@schubergphilis.com>'''
+__email__ = '''<ctyfoxylos@schubergphilis.com>, <jbrands@schubergphilis.com>, <tscholte@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
+
+
+class InvalidFrameworks(Exception):
+    """The frameworks provided are not valid."""
+
+
+class InvalidAccountListProvided(Exception):
+    """The list of accounts provided are not valid AWS accounts."""
+
+
+class MutuallyExclusiveArguments(Exception):
+    """The arguments provided are mutually exclusive and only one of the should be provided."""

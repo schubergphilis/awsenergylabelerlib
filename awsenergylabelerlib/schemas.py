@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# File: __init__.py
+# File: schemas.py
 #
 # Copyright 2021 Costas Tyfoxylos, Jenda Brands, Theodoor Scholte
 #
@@ -24,14 +24,15 @@
 #
 
 """
-awsenergylabelerlib package.
+schemas package.
 
-Import all parts from awsenergylabelerlib here
+Import all parts from schemas here
 
 .. _Google Python Style Guide:
    http://google.github.io/styleguide/pyguide.html
 """
-from ._version import __version__
+
+from schema import Schema, And
 
 __author__ = ('Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>, '
               'Jenda Brands <jbrands@schubergphilis.com>, '
@@ -44,5 +45,15 @@ __maintainer__ = '''Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>, <jbrands@schubergphilis.com>, <tscholte@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-# This is to 'use' the module(s), so lint doesn't complain
-assert __version__
+
+security_hub_filter_schema = Schema({'UpdatedAt': [{'DateRange': {'Unit': 'DAYS',
+                                                                  'Value': And(int, lambda n: n > 0)}}]})
+
+account_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
+                                     'critical_high': And(int, lambda n: n >= 0),
+                                     'medium': And(int, lambda n: n >= 0),
+                                     'low': And(int, lambda n: n >= 0),
+                                     'days_open_less_than': And(int, lambda n: n > 0)}])
+
+landing_zone_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
+                                          'percentage': And(int, lambda n: 0 <= n <= 100)}])
