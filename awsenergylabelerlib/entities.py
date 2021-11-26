@@ -384,7 +384,7 @@ class _SecurityHub:
                 botocore.exceptions.InvalidRegionError,
                 botocore.exceptions.EndpointConnectionError) as msg:
             raise NoRegion(msg) from None
-        except botocore.exceptions.ClientError as msg:
+        except (botocore.exceptions.ClientError, botocore.exceptions.NoCredentialsError) as msg:
             raise InvalidOrNoCredentials(msg) from None
         return client
 
