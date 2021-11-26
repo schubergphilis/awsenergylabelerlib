@@ -179,4 +179,5 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
             if sum(account_sums) / number_of_accounts * 100 >= percentage:
                 self._logger.debug(f'Found a match with label {label}')
                 calculated_label = label
+                break
         return calculated_label
