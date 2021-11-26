@@ -33,6 +33,12 @@ Import all parts from awsenergylabelerlib here
 """
 from ._version import __version__
 from .awsenergylabelerlib import EnergyLabeler
+from .awsenergylabelerlibexceptions import (InvalidFrameworks,
+                                            InvalidOrNoCredentials,
+                                            InvalidAccountListProvided,
+                                            MutuallyExclusiveArguments,
+                                            NoAccess,
+                                            NoRegion)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -46,3 +52,10 @@ __status__ = '''Development'''  # "Prototype", "Development", "Production".
 # This is to 'use' the module(s), so lint doesn't complain
 assert __version__
 assert EnergyLabeler
+
+assert InvalidFrameworks
+assert InvalidOrNoCredentials
+assert InvalidAccountListProvided
+assert MutuallyExclusiveArguments
+assert NoAccess
+assert NoRegion

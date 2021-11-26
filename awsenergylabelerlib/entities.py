@@ -37,9 +37,15 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import boto3
+import botocore.exceptions
+import botocore.errorfactory
 from cachetools import cached, TTLCache
+from botocore.config import Config
 
-from .awsenergylabelerlibexceptions import InvalidFrameworks
+from .awsenergylabelerlibexceptions import (InvalidFrameworks,
+                                            InvalidOrNoCredentials,
+                                            NoAccess,
+                                            NoRegion)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -61,10 +67,30 @@ class LandingZone:
 
     def __init__(self, name, thresholds, account_thresholds):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self.organizations = boto3.client('organizations')
+        self.organizations = self._get_client()
         self.name = name
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
+
+    @staticmethod
+    def _get_client():
+        """Provides the client to organizations.
+
+        Returns:
+            boto3 organizations client
+
+        Raises:
+            InvalidOrNoCredentials if credentials are not provided or are insufficient.
+
+        """
+        try:
+            client = boto3.client('organizations')
+            client.describe_organization()
+        except (botocore.exceptions.NoCredentialsError,
+                client.exceptions.AccessDeniedException,  # noqa
+                botocore.exceptions.ClientError) as msg:
+            raise InvalidOrNoCredentials(msg) from None
+        return client
 
     def __repr__(self):
         return f'{self.name} landing zone'
@@ -72,15 +98,26 @@ class LandingZone:
     @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
     def accounts(self):
-        """Accounts of the landing zone."""
+        """Accounts of the landing zone.
+
+        Returns:
+            List of accounts retrieved
+
+        Raises:
+            NoAccess: If insufficient access from credentials.
+
+        """
         aws_accounts = []
         paginator = self.organizations.get_paginator('list_accounts')
         iterator = paginator.paginate()
-        for page in iterator:
-            for account in page['Accounts']:
-                account = AwsAccount(account.get('Id'), account.get('Name'), self)
-                aws_accounts.append(account)
-        return aws_accounts
+        try:
+            for page in iterator:
+                for account in page['Accounts']:
+                    account = AwsAccount(account.get('Id'), account.get('Name'), self)
+                    aws_accounts.append(account)
+            return aws_accounts
+        except self.organizations.exceptions.AccessDeniedException as msg:
+            raise NoAccess(msg) from None
 
     def get_allowed_accounts(self, allow_list):
         """Retrieves allowed accounts based on an allow list.
@@ -329,10 +366,27 @@ class _SecurityHub:
     def __init__(self, query_filter, region=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.sts = boto3.client('sts')
-        self.ec2 = boto3.client('ec2')
+        self.ec2 = self._get_client(region)
         self.query_filter = query_filter
         self._aws_regions = None
         self.aws_region = region if region in self.regions else self.sts._client_config.region_name  # noqa
+
+    @staticmethod
+    def _get_client(region):
+        kwargs = {}
+        if region:
+            config = Config(region_name=region)
+            kwargs = dict(config=config)
+        try:
+            client = boto3.client('ec2', **kwargs)
+            client.describe_regions()
+        except (botocore.exceptions.NoRegionError,
+                botocore.exceptions.InvalidRegionError,
+                botocore.exceptions.EndpointConnectionError) as msg:
+            raise NoRegion(msg) from None
+        except (botocore.exceptions.ClientError, botocore.exceptions.NoCredentialsError) as msg:
+            raise InvalidOrNoCredentials(msg) from None
+        return client
 
     @property
     def regions(self):

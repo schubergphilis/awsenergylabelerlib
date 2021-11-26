@@ -52,3 +52,15 @@ class InvalidAccountListProvided(Exception):
 
 class MutuallyExclusiveArguments(Exception):
     """The arguments provided are mutually exclusive and only one of the should be provided."""
+
+
+class InvalidOrNoCredentials(Exception):
+    """Invalid or no credentials were provided from the environment."""
+
+
+class NoAccess(Exception):
+    """The credentials provided do not provide access to the resources."""
+
+
+class NoRegion(Exception):
+    """No region is set on the environment or priveded to the library."""
