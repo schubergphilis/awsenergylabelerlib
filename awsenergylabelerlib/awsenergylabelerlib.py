@@ -115,7 +115,8 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
             accounts = [accounts] if validate_account(accounts) else re.split('[^0-9]', accounts)
         accounts = list({account for account in accounts if account})
         if not validate_accounts(accounts):
-            raise InvalidAccountListProvided(accounts)
+            raise InvalidAccountListProvided(f'The list of accounts provided is not a list with valid AWS IDs'
+                                             f' {accounts}')
         return accounts
 
     def _get_valid_account_ids(self):
