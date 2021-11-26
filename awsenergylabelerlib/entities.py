@@ -37,10 +37,11 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import boto3
-import botocore.exceptions
 import botocore.errorfactory
-from cachetools import cached, TTLCache
+import botocore.exceptions
 from botocore.config import Config
+from cachetools import cached, TTLCache
+from opnieuw import retry
 
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
@@ -400,6 +401,7 @@ class _SecurityHub:
         return self._aws_regions
 
     @property
+    @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     @cached(cache=TTLCache(maxsize=150000, ttl=3600))
     def _findings(self):
         findings = []
