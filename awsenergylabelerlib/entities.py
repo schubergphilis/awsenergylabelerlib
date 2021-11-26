@@ -189,6 +189,7 @@ class AwsAccount:
                             and number_of_low_findings <= threshold['low'] \
                             and nr_open_findings_low_or_higher <= nr_of_findings_open_lt_xx_days:
                         self.energy_label = threshold['label']
+                        break
             except Exception:   # pylint: disable=broad-except
                 self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
