@@ -19,3 +19,9 @@ History
 ------------------
 
 * Exposed main object to the root of the package.
+
+
+0.2.0 (26-11-2021)
+------------------
+
+* Fixed labaling algorithms, added retries to finding retrieval and implemented proper exception handling.
