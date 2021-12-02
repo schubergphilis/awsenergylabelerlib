@@ -57,7 +57,6 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-
 LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
@@ -153,6 +152,10 @@ class AwsAccount:
     name: str
     landing_zone: LandingZone
     energy_label: str = ""
+    number_of_critical_high_findings: int = 0
+    number_of_medium_findings: int = 0
+    number_low_findings: int = 0
+    max_days_open: int = 0
 
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
@@ -174,24 +177,34 @@ class AwsAccount:
                 open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
                 number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
                 number_of_high_findings = open_findings[open_findings['Severity'] == 'HIGH'].shape[0]
-                number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
-                number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
+                self.number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
+                self.number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
+                self.number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
                 open_findings_low_or_higher = open_findings[(open_findings['Severity'] == 'LOW') |
                                                             (open_findings['Severity'] == 'MEDIUM') |
                                                             (open_findings['Severity'] == 'HIGH') |
                                                             (open_findings['Severity'] == 'CRITICAL')]
-                nr_open_findings_low_or_higher = open_findings_low_or_higher.shape[0]
+                self.max_days_open = max(open_findings_low_or_higher['Days Open']) \
+                    if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
+
+                self._logger.debug(f"Calculating for account {self.id}...")
+                self._logger.debug(f"Calculating for account {self.id} "
+                                   f"with number of critical+high findings "
+                                   f"{self.number_of_critical_high_findings}, "
+                                   f"number of medium findings {self.number_of_medium_findings}, "
+                                   f"number of low findings {self.number_of_low_findings}, "
+                                   f"and findings have been open for over "
+                                   f"{self.max_days_open} days")
                 for threshold in self.landing_zone.account_thresholds:
-                    nr_of_findings_open_lt_xx_days = \
-                        open_findings_low_or_higher[
-                            open_findings_low_or_higher['Days Open'] < threshold['days_open_less_than']].shape[0]
-                    if (number_of_critical_findings + number_of_high_findings) <= threshold['critical_high'] \
-                            and number_of_medium_findings <= threshold['medium'] \
-                            and number_of_low_findings <= threshold['low'] \
-                            and nr_open_findings_low_or_higher <= nr_of_findings_open_lt_xx_days:
+                    if self.number_of_critical_high_findings <= threshold['critical_high'] \
+                        and self.number_of_medium_findings <= threshold['medium'] \
+                        and self.number_of_low_findings <= threshold['low'] \
+                        and self.max_days_open < threshold['days_open_less_than']:
                         self.energy_label = threshold['label']
+                        self._logger.debug(f'Energy Label for account {self.id} '
+                                           f'has been calculated: {self.energy_label}')
                         break
-            except Exception:   # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except
                 self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
 
