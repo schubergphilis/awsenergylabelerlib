@@ -25,3 +25,10 @@ History
 ------------------
 
 * Fixed labaling algorithms, added retries to finding retrieval and implemented proper exception handling.
+
+
+0.2.1 (02-12-2021)
+------------------
+
+* Updated number of days open to 999 days
+* Account data now includes details on number of findings per severity
