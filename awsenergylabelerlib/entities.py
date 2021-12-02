@@ -187,7 +187,6 @@ class AwsAccount:
                 self.max_days_open = max(open_findings_low_or_higher['Days Open']) \
                     if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
 
-                self._logger.debug(f"Calculating for account {self.id}...")
                 self._logger.debug(f"Calculating for account {self.id} "
                                    f"with number of critical+high findings "
                                    f"{self.number_of_critical_high_findings}, "
