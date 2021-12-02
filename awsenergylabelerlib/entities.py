@@ -145,7 +145,7 @@ class LandingZone:
 
 
 @dataclass
-class AwsAccount:
+class AwsAccount:  # pylint: disable=too-many-instance-attributes
     """Models the aws account that can label itself."""
 
     id: str  # pylint: disable=invalid-name
@@ -154,7 +154,7 @@ class AwsAccount:
     energy_label: str = ""
     number_of_critical_high_findings: int = 0
     number_of_medium_findings: int = 0
-    number_low_findings: int = 0
+    number_of_low_findings: int = 0
     max_days_open: int = 0
 
     def __post_init__(self):
@@ -187,18 +187,18 @@ class AwsAccount:
                 self.max_days_open = max(open_findings_low_or_higher['Days Open']) \
                     if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
 
-                self._logger.debug(f"Calculating for account {self.id} "
-                                   f"with number of critical+high findings "
-                                   f"{self.number_of_critical_high_findings}, "
-                                   f"number of medium findings {self.number_of_medium_findings}, "
-                                   f"number of low findings {self.number_of_low_findings}, "
-                                   f"and findings have been open for over "
-                                   f"{self.max_days_open} days")
+                self._logger.debug(f'Calculating for account {self.id} '
+                                   f'with number of critical+high findings '
+                                   f'{self.number_of_critical_high_findings}, '
+                                   f'number of medium findings {self.number_of_medium_findings}, '
+                                   f'number of low findings {self.number_of_low_findings}, '
+                                   f'and findings have been open for over '
+                                   f'{self.max_days_open} days')
                 for threshold in self.landing_zone.account_thresholds:
                     if self.number_of_critical_high_findings <= threshold['critical_high'] \
-                        and self.number_of_medium_findings <= threshold['medium'] \
-                        and self.number_of_low_findings <= threshold['low'] \
-                        and self.max_days_open < threshold['days_open_less_than']:
+                            and self.number_of_medium_findings <= threshold['medium'] \
+                            and self.number_of_low_findings <= threshold['low'] \
+                            and self.max_days_open < threshold['days_open_less_than']:
                         self.energy_label = threshold['label']
                         self._logger.debug(f'Energy Label for account {self.id} '
                                            f'has been calculated: {self.energy_label}')
@@ -208,8 +208,8 @@ class AwsAccount:
         return self.energy_label
 
 
-@dataclass  # pylint: disable=too-many-public-methods
-class Finding:
+@dataclass
+class Finding:  # pylint: disable=too-many-public-methods
     """Models a finding."""
 
     _data: dict
