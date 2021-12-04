@@ -50,6 +50,10 @@ class InvalidAccountListProvided(Exception):
     """The list of accounts provided are not valid AWS accounts."""
 
 
+class InvalidRegionListProvided(Exception):
+    """The list of regions provided are not valid AWS regions."""
+
+
 class MutuallyExclusiveArguments(Exception):
     """The arguments provided are mutually exclusive and only one of the should be provided."""
 
