@@ -39,3 +39,9 @@ History
 
 * Improved error handling
 * Allow/deny specific regions
+
+
+0.2.3 (06-12-2021)
+------------------
+
+* Added requests dependency
