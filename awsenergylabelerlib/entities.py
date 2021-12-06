@@ -97,6 +97,12 @@ class LandingZone:
 
     @property
     def account_ids(self):
+        """Accounts ids of the accounts.
+
+        Returns:
+            List of account ids for provided accounts
+
+        """
         return [account.id for account in self.accounts]
 
     @property
