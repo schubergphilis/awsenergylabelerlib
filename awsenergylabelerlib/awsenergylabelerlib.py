@@ -86,14 +86,14 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
             else ACCOUNT_THRESHOLDS
         self.security_hub_filter = security_hub_filter_schema.validate(security_hub_filter) if security_hub_filter \
             else SECURITY_HUB_FILTER
-        self.allow_list = self._validate_account_ids(allow_list) if allow_list else []
-        self.deny_list = self._validate_account_ids(deny_list) if deny_list else []
+        self._landing_zone = LandingZone(landing_zone_name, self.landing_zone_thresholds, self.account_thresholds)
+        self.allow_list = self._validate_account_ids(allow_list, self._landing_zone.account_ids) if allow_list else []
+        self.deny_list = self._validate_account_ids(deny_list, self._landing_zone.account_ids) if deny_list else []
         self.allowed_regions = self._validate_regions(allowed_regions) if allowed_regions else []
         self.denied_regions = self._validate_regions(denied_regions) if denied_regions else []
         self.landing_zone_name = landing_zone_name
         self._security_hub = SecurityHub(query_filter=self.security_hub_filter, region=region,
                                          allowed_regions=self.allowed_regions, denied_regions=self.denied_regions)
-        self._landing_zone = LandingZone(landing_zone_name, self.landing_zone_thresholds, self.account_thresholds)
         self._frameworks = frameworks if self._security_hub.validate_frameworks(frameworks) \
             else ('cis', 'aws-foundational-security-best-practices')  # pylint: disable=no-member
         self._account_labels_counter = None
@@ -109,7 +109,7 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
         return self._security_hub.get_findings_data_for_frameworks(self._frameworks)  # pylint: disable=no-member
 
     @staticmethod
-    def _validate_account_ids(accounts):
+    def _validate_account_ids(accounts, all_landing_zone_accounts):
 
         def validate_account(account):
             return all([len(account) == 12, account.isdigit()])
@@ -123,7 +123,8 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
         if isinstance(accounts, str):
             accounts = [accounts] if validate_account(accounts) else re.split('[^0-9]', accounts)
         accounts = list({account for account in accounts if account})
-        if not validate_accounts(accounts):
+        if not all([validate_accounts(accounts),
+                    set(all_landing_zone_accounts).issuperset(set(accounts))]):
             raise InvalidAccountListProvided(f'The list of accounts provided is not a list with valid AWS IDs'
                                              f' {accounts}')
         return accounts
@@ -146,22 +147,24 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
             return [entry.get('id', '').split(':')[1]
                     for entry in response.json().get('prices')
                     if entry.get('id').startswith('securityhub')]
+        all_available_regions = get_available_regions()
 
         def validate_region(region):
-            return region in get_available_regions()
+            return region in all_available_regions
 
-        def validate_regions(regions_):
-            return all([validate_region(region) for region in regions_])
+        def get_invalid_regions(regions_):
+            return set(regions_) - set(all_available_regions)
 
         if not isinstance(regions, (list, tuple, str)):
             raise InvalidRegionListProvided(f'Only list, tuple or string of regions is accepted input, '
                                             f'received: {regions}')
         if isinstance(regions, str):
             regions = [regions] if validate_region(regions) else re.split(r'\s', regions)
-        regions = list({region for region in regions if region})
-        if not validate_regions(regions):
+
+        invalid_regions = get_invalid_regions(regions)
+        if invalid_regions:
             raise InvalidRegionListProvided(f'The list of regions provided is not a list with valid AWS regions'
-                                            f' {regions}')
+                                            f' {invalid_regions}')
         return regions
 
     def _get_valid_account_ids(self):

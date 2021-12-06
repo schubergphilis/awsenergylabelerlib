@@ -96,6 +96,10 @@ class LandingZone:
         return f'{self.name} landing zone'
 
     @property
+    def account_ids(self):
+        return [account.id for account in self.accounts]
+
+    @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
     def accounts(self):
         """Accounts of the landing zone.
