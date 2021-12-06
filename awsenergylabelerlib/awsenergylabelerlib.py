@@ -34,6 +34,7 @@ Main code for awsenergylabelerlib.
 import logging
 import re
 from collections import Counter
+import requests
 
 import pandas as pd
 
@@ -130,9 +131,24 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
     @staticmethod
     def _validate_regions(regions):
 
+        def get_available_regions():
+            """The regions that security hub can be active in.
+
+            Returns:
+                regions (list): A list of strings of the regions that security hub can be active in.
+
+            """
+            url = 'https://api.regional-table.region-services.aws.a2z.com/index.json'
+            response = requests.get(url)
+            if not response.ok:
+                LOGGER.error('Failed to retrieve applicable AWS regions')
+                return []
+            return [entry.get('id', '').split(':')[1]
+                    for entry in response.json().get('prices')
+                    if entry.get('id').startswith('securityhub')]
+
         def validate_region(region):
-            match = re.match(r'^[a-z]{2}-[a-z]+-\d$', region)
-            return all([match])
+            return region in get_available_regions()
 
         def validate_regions(regions_):
             return all([validate_region(region) for region in regions_])
