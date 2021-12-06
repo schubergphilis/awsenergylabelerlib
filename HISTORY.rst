@@ -32,3 +32,10 @@ History
 
 * Updated number of days open to 999 days
 * Account data now includes details on number of findings per severity
+
+
+0.2.2 (06-12-2021)
+------------------
+
+* Improved error handling
+* Allow/deny specific regions
