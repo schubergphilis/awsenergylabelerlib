@@ -36,6 +36,7 @@ from .awsenergylabelerlib import EnergyLabeler
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             InvalidAccountListProvided,
+                                            InvalidRegionListProvided,
                                             MutuallyExclusiveArguments,
                                             NoAccess,
                                             NoRegion)
@@ -56,6 +57,7 @@ assert EnergyLabeler
 assert InvalidFrameworks
 assert InvalidOrNoCredentials
 assert InvalidAccountListProvided
+assert InvalidRegionListProvided
 assert MutuallyExclusiveArguments
 assert NoAccess
 assert NoRegion

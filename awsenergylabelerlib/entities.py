@@ -96,6 +96,16 @@ class LandingZone:
         return f'{self.name} landing zone'
 
     @property
+    def account_ids(self):
+        """Accounts ids of the accounts.
+
+        Returns:
+            List of account ids for provided accounts
+
+        """
+        return [account.id for account in self.accounts]
+
+    @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
     def accounts(self):
         """Accounts of the landing zone.
@@ -366,19 +376,21 @@ class SecurityHub:  # pylint: disable=too-few-public-methods
 
     instance = None
 
-    def __new__(cls, query_filter, region=None):
+    def __new__(cls, query_filter, region=None, allowed_regions=None, denied_regions=None):
         if not SecurityHub.instance:
-            SecurityHub.instance = _SecurityHub(query_filter, region)
+            SecurityHub.instance = _SecurityHub(query_filter, region, allowed_regions, denied_regions)
         return SecurityHub.instance
 
 
-class _SecurityHub:
+class _SecurityHub:  # pylint: disable=too-many-instance-attributes
     """Models security hub and can retrieve findings."""
 
     frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
 
-    def __init__(self, query_filter, region=None):
+    def __init__(self, query_filter, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        self.allowed_regions = allowed_regions
+        self.denied_regions = denied_regions
         self.sts = boto3.client('sts')
         self.ec2 = self._get_client(region)
         self.query_filter = query_filter
@@ -409,7 +421,17 @@ class _SecurityHub:
             self._aws_regions = [region.get('RegionName')
                                  for region in self.ec2.describe_regions().get('Regions')
                                  if not region.get('OptInStatus', '') == 'not-opted-in']
-            self._logger.debug(f'Regions that were opted in are : {self._aws_regions}')
+            self._logger.debug(f'Regions in EC2 that were opted in are : {self._aws_regions}')
+
+        if self.allowed_regions:
+            self._aws_regions = set(self._aws_regions).intersection(set(self.allowed_regions))
+            self._logger.debug(f'Working on allowed regions {self._aws_regions}')
+        elif self.denied_regions:
+            self._logger.debug(f'Excluding denied regions {self.denied_regions}')
+            self._aws_regions = set(self._aws_regions) - set(self.denied_regions)
+            self._logger.debug(f'Working on non-denied regions {self._aws_regions}')
+        else:
+            self._logger.debug('Working on all regions')
         return self._aws_regions
 
     @property
@@ -431,7 +453,7 @@ class _SecurityHub:
                         finding = Finding(finding_data)
                         self._logger.debug(f'Adding finding with id {finding.id}')
                         findings.append(finding)
-            except security_hub.exceptions.InvalidAccessException:
+            except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
                 self._logger.warning(f'Check your access for Security Hub for region {region}.')
                 continue
         return findings
