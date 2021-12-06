@@ -424,11 +424,11 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
             self._logger.debug(f'Regions in EC2 that were opted in are : {self._aws_regions}')
 
         if self.allowed_regions:
-            self._logger.debug(f'Working on allowed regions {self.allowed_regions}')
-            self._aws_regions = [region for region in self._aws_regions if region in self.allowed_regions]
+            self._aws_regions = set(self._aws_regions).intersection(set(self.allowed_regions))
+            self._logger.debug(f'Working on allowed regions {self._aws_regions}')
         elif self.denied_regions:
             self._logger.debug(f'Excluding denied regions {self.denied_regions}')
-            self._aws_regions = [region for region in self._aws_regions if region not in self.denied_regions]
+            self._aws_regions = set(self._aws_regions) - set(self.denied_regions)
             self._logger.debug(f'Working on non-denied regions {self._aws_regions}')
         else:
             self._logger.debug('Working on all regions')
