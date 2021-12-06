@@ -38,8 +38,9 @@ import requests
 
 import pandas as pd
 
-from .awsenergylabelerlibexceptions import InvalidAccountListProvided, InvalidRegionListProvided, \
-    MutuallyExclusiveArguments
+from .awsenergylabelerlibexceptions import (InvalidAccountListProvided,
+                                            InvalidRegionListProvided,
+                                            MutuallyExclusiveArguments)
 from .configuration import ACCOUNT_THRESHOLDS, LANDING_ZONE_THRESHOLDS, SECURITY_HUB_FILTER
 from .entities import SecurityHub, LandingZone
 from .schemas import account_thresholds_schema, security_hub_filter_schema, landing_zone_thresholds_schema
@@ -92,8 +93,10 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
         self.allowed_regions = self._validate_regions(allowed_regions) if allowed_regions else []
         self.denied_regions = self._validate_regions(denied_regions) if denied_regions else []
         self.landing_zone_name = landing_zone_name
-        self._security_hub = SecurityHub(query_filter=self.security_hub_filter, region=region,
-                                         allowed_regions=self.allowed_regions, denied_regions=self.denied_regions)
+        self._security_hub = SecurityHub(query_filter=self.security_hub_filter,
+                                         region=region,
+                                         allowed_regions=self.allowed_regions,
+                                         denied_regions=self.denied_regions)
         self._frameworks = frameworks if self._security_hub.validate_frameworks(frameworks) \
             else ('cis', 'aws-foundational-security-best-practices')  # pylint: disable=no-member
         self._account_labels_counter = None
