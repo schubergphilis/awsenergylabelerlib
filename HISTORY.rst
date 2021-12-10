@@ -45,3 +45,9 @@ History
 ------------------
 
 * Added requests dependency
+
+
+0.2.4 (10-12-2021)
+------------------
+
+* A finding exposes now more fields: resources, record_state, description, remediation
