@@ -51,3 +51,9 @@ History
 ------------------
 
 * A finding exposes now more fields: resources, record_state, description, remediation
+
+
+0.2.5 (10-12-2021)
+------------------
+
+* Compliance fields added to a Security Hub Finding
