@@ -323,6 +323,19 @@ class Finding:  # pylint: disable=too-many-public-methods
         return self._data.get('RecordState')
 
     @property
+    def compliance_framework(self):
+        """Compliance framework."""
+        return 'aws-foundational-security-best-practices' if self.is_aws_foundational_security_best_practices \
+            else 'cis-aws' if self.is_cis \
+            else 'pci-dss' if self.is_pci_dss \
+            else 'None'
+
+    @property
+    def rule_id(self):
+        """Rule id."""
+        return self._data.get('ProductFields', {}).get('RuleId')
+
+    @property
     def compliance_status(self):
         """Compliance status."""
         return self._data.get('Compliance', {}).get('Status')
