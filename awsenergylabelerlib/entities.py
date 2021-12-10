@@ -206,9 +206,9 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
                                    f'{self.max_days_open} days')
                 for threshold in self.landing_zone.account_thresholds:
                     if self.number_of_critical_high_findings <= threshold['critical_high'] \
-                            and self.number_of_medium_findings <= threshold['medium'] \
-                            and self.number_of_low_findings <= threshold['low'] \
-                            and self.max_days_open < threshold['days_open_less_than']:
+                        and self.number_of_medium_findings <= threshold['medium'] \
+                        and self.number_of_low_findings <= threshold['low'] \
+                        and self.max_days_open < threshold['days_open_less_than']:
                         self.energy_label = threshold['label']
                         self._logger.debug(f'Energy Label for account {self.id} '
                                            f'has been calculated: {self.energy_label}')
@@ -253,6 +253,31 @@ class Finding:  # pylint: disable=too-many-public-methods
         return self._data.get('Title')
 
     @property
+    def description(self):
+        """Description."""
+        return self._data.get('Description')
+
+    @property
+    def remediation_recommendation_text(self):
+        """Textual recommendation for remediation."""
+        return self._data.get('Remediation', {}).get('Recommendation', {}).get('Text')
+
+    @property
+    def remediation_recommendation_url(self):
+        """URL for more information on the remediation."""
+        return self._data.get('Remediation', {}).get('Recommendation', {}).get('Url')
+
+    @property
+    def standards_guide_arn(self):
+        """Arn of the compliance standard."""
+        return self._data.get('ProductFields', {}).get('StandardsGuideArn')
+
+    @property
+    def resources(self):
+        """A list of resource dicts."""
+        return self._data.get('Resources', [{}])
+
+    @property
     def resource_types(self):
         """Resource type."""
         return [resource.get('Type') for resource in self._data.get('Resources', [{}])]
@@ -291,6 +316,11 @@ class Finding:  # pylint: disable=too-many-public-methods
     def workflow_status(self):
         """Workflow status."""
         return self._data.get('Workflow', {}).get('Status')
+
+    @property
+    def record_state(self):
+        """Record status."""
+        return self._data.get('RecordState')
 
     @property
     def compliance_status(self):
