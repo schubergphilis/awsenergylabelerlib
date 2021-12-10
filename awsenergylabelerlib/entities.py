@@ -206,9 +206,9 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
                                    f'{self.max_days_open} days')
                 for threshold in self.landing_zone.account_thresholds:
                     if self.number_of_critical_high_findings <= threshold['critical_high'] \
-                            and self.number_of_medium_findings <= threshold['medium'] \
-                            and self.number_of_low_findings <= threshold['low'] \
-                            and self.max_days_open < threshold['days_open_less_than']:
+                        and self.number_of_medium_findings <= threshold['medium'] \
+                        and self.number_of_low_findings <= threshold['low'] \
+                        and self.max_days_open < threshold['days_open_less_than']:
                         self.energy_label = threshold['label']
                         self._logger.debug(f'Energy Label for account {self.id} '
                                            f'has been calculated: {self.energy_label}')
@@ -321,6 +321,19 @@ class Finding:  # pylint: disable=too-many-public-methods
     def record_state(self):
         """Record status."""
         return self._data.get('RecordState')
+
+    @property
+    def compliance_framework(self):
+        """Compliance framework."""
+        return 'aws-foundational-security-best-practices' if self.is_aws_foundational_security_best_practices \
+            else 'cis-aws' if self.is_cis \
+            else 'pci-dss' if self.is_pci_dss \
+            else 'None'
+
+    @property
+    def rule_id(self):
+        """Rule id."""
+        return self._data.get('ProductFields', {}).get('RuleId')
 
     @property
     def compliance_status(self):
