@@ -107,9 +107,9 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
         return self._security_hub.get_findings_for_frameworks(self._frameworks)  # pylint: disable=no-member
 
     @property
-    def security_hub_findings_data(self):
+    def security_hub_measurement_data(self):
         """Data of security hub findings."""
-        return self._security_hub.get_findings_data_for_frameworks(self._frameworks)  # pylint: disable=no-member
+        return self._security_hub.get_findings_measurement_data_for_frameworks(self._frameworks)  # pylint: disable=no-member
 
     @staticmethod
     def _validate_account_ids(accounts, all_landing_zone_accounts):
@@ -189,11 +189,11 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
         labeled_accounts = []
         labels = []
         self._logger.debug('Retrieving security hub findings')
-        dataframe_findings = pd.DataFrame(self.security_hub_findings_data)
+        dataframe_measurements = pd.DataFrame(self.security_hub_measurement_data)
         valid_account_ids = self._get_valid_account_ids()
         for account in self._landing_zone.accounts:
             self._logger.debug(f'Calculating energy label for account {account.id}')
-            labels.append(account.calculate_energy_label(dataframe_findings))
+            labels.append(account.calculate_energy_label(dataframe_measurements))
             if account.id in valid_account_ids:
                 self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
                 labeled_accounts.append(account)
