@@ -57,3 +57,9 @@ History
 ------------------
 
 * Compliance fields added to a Security Hub Finding
+
+
+0.3.0 (14-12-2021)
+------------------
+
+* Changed the structure of the measurement data
