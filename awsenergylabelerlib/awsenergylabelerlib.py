@@ -108,7 +108,7 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
 
     @property
     def security_hub_measurement_data(self):
-        """Data of security hub findings."""
+        """Measurement data from security hub findings."""
         return self._security_hub.get_findings_measurement_data_for_frameworks(self._frameworks)  # pylint: disable=no-member
 
     @staticmethod
