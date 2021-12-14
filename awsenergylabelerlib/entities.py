@@ -170,11 +170,11 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
-    def calculate_energy_label(self, findings_frame):
+    def calculate_energy_label(self, findings_measurements_frame):
         """Calculates the energy label for the account.
 
         Args:
-            findings_frame: Dataframe with the findings from security hub.
+            findings_measurements_frame: Dataframe with the measurements on findings from security hub.
 
         Returns:
             The energy label of the account based on the provided configuration.
@@ -182,7 +182,7 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
         """
         if not self.energy_label:
             self.energy_label = "F"
-            df = findings_frame  # pylint: disable=invalid-name
+            df = findings_measurements_frame  # pylint: disable=invalid-name
             try:
                 open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
                 number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
@@ -328,7 +328,7 @@ class Finding:  # pylint: disable=too-many-public-methods
         return 'aws-foundational-security-best-practices' if self.is_aws_foundational_security_best_practices \
             else 'cis-aws' if self.is_cis \
             else 'pci-dss' if self.is_pci_dss \
-            else 'None'
+            else ''
 
     @property
     def rule_id(self):
@@ -392,24 +392,13 @@ class Finding:  # pylint: disable=too-many-public-methods
         return self._data
 
     @property
-    def data(self):
-        """Data."""
+    def measurement_data(self):
+        """Data used for computing the energy label."""
         return {
-            'Finding Type': self.types,
             'Finding ID': self.id,
             'Account ID': self.aws_account_id,
-            'Finding First Observed At': self.first_observed_at,
-            'Finding Last Observed At': self.last_observed_at,
-            'Finding Created At': self.created_at,
-            'Finding Updated At': self.updated_at,
             'Severity': self.severity,
-            'Title': self.title,
-            'Resource Types': self.resource_types,
-            'Resource IDs': self.resource_ids,
-            'Region': self.region,
-            'Compliance Status': self.compliance_status,
             'Workflow State': self.workflow_status,
-            'Compliance Control': self.compliance_control,
             'Days Open': self.days_open
         }
 
@@ -535,7 +524,7 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
             findings.extend([finding for finding in self._findings if getattr(finding, attribute)])
         return findings
 
-    def get_findings_data_for_frameworks(self, frameworks):
+    def get_findings_measurement_data_for_frameworks(self, frameworks):
         """Gets findings data based on provided frameworks.
 
         Args:
@@ -546,4 +535,4 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
 
         """
         findings = self.get_findings_for_frameworks(frameworks)
-        return [finding.data for finding in findings]
+        return [finding.measurement_data for finding in findings]
