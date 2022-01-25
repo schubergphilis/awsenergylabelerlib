@@ -88,7 +88,8 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
             else ACCOUNT_THRESHOLDS
         self.security_hub_filter = security_hub_filter_schema.validate(security_hub_filter) if security_hub_filter \
             else SECURITY_HUB_FILTER
-        self._landing_zone = LandingZone(landing_zone_name, self.landing_zone_thresholds, self.account_thresholds) if not single_account else None
+        self._landing_zone = LandingZone(landing_zone_name, self.landing_zone_thresholds, self.account_thresholds) \
+            if not single_account else None
         self.allow_list = self._validate_account_ids(allow_list, self._landing_zone.account_ids) if allow_list else []
         self.deny_list = self._validate_account_ids(deny_list, self._landing_zone.account_ids) if deny_list else []
         self.allowed_regions = self._validate_regions(allowed_regions) if allowed_regions else []

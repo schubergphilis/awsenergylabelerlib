@@ -48,8 +48,6 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             NoAccess,
                                             NoRegion)
 
-from .configuration import ACCOUNT_THRESHOLDS
-
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
@@ -169,7 +167,6 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
     number_of_medium_findings: int = 0
     number_of_low_findings: int = 0
     max_days_open: int = 0
-    
 
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
