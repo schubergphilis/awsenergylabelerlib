@@ -48,6 +48,8 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             NoAccess,
                                             NoRegion)
 
+from .configuration import ACCOUNT_THRESHOLDS
+
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
@@ -123,7 +125,7 @@ class LandingZone:
         try:
             for page in iterator:
                 for account in page['Accounts']:
-                    account = AwsAccount(account.get('Id'), account.get('Name'), self)
+                    account = AwsAccount(account.get('Id'), account.get('Name'), self, self.account_thresholds)
                     aws_accounts.append(account)
             return aws_accounts
         except self.organizations.exceptions.AccessDeniedException as msg:
@@ -161,11 +163,13 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
     id: str  # pylint: disable=invalid-name
     name: str
     landing_zone: LandingZone
+    account_thresholds: list
     energy_label: str = ""
     number_of_critical_high_findings: int = 0
     number_of_medium_findings: int = 0
     number_of_low_findings: int = 0
     max_days_open: int = 0
+    
 
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
@@ -204,7 +208,7 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
                                    f'number of low findings {self.number_of_low_findings}, '
                                    f'and findings have been open for over '
                                    f'{self.max_days_open} days')
-                for threshold in self.landing_zone.account_thresholds:
+                for threshold in self.account_thresholds:
                     if self.number_of_critical_high_findings <= threshold['critical_high'] \
                             and self.number_of_medium_findings <= threshold['medium'] \
                             and self.number_of_low_findings <= threshold['low'] \
