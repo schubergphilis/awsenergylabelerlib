@@ -63,3 +63,9 @@ History
 ------------------
 
 * Changed the structure of the measurement data
+
+
+0.4.0 (28-01-2022)
+------------------
+
+* Introduced single account mode which opportunistically gets findings from SecurityHub
