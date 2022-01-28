@@ -94,7 +94,7 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
         self.deny_list = self._validate_account_ids(deny_list, self._landing_zone.account_ids) if deny_list else []
         self.allowed_regions = self._validate_regions(allowed_regions) if allowed_regions else []
         self.denied_regions = self._validate_regions(denied_regions) if denied_regions else []
-        self.landing_zone_name = landing_zone_name if not single_account else None
+        self.landing_zone_name = landing_zone_name
         self._security_hub = SecurityHub(query_filter=self.security_hub_filter,
                                          region=region,
                                          allowed_regions=self.allowed_regions,
