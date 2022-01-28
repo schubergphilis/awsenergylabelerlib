@@ -42,7 +42,7 @@ from .awsenergylabelerlibexceptions import (InvalidAccountListProvided,
                                             InvalidRegionListProvided,
                                             MutuallyExclusiveArguments)
 from .configuration import ACCOUNT_THRESHOLDS, LANDING_ZONE_THRESHOLDS, SECURITY_HUB_FILTER
-from .entities import SecurityHub, LandingZone
+from .entities import SecurityHub, LandingZone, AwsAccount
 from .schemas import account_thresholds_schema, security_hub_filter_schema, landing_zone_thresholds_schema
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
@@ -75,7 +75,8 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
                  allow_list=None,
                  deny_list=None,
                  allowed_regions=None,
-                 denied_regions=None):
+                 denied_regions=None,
+                 single_account=False):
         if all([allow_list, deny_list]):
             raise MutuallyExclusiveArguments('allow_list and deny_list are mutually exclusive.')
         if all([allowed_regions, denied_regions]):
@@ -87,7 +88,8 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
             else ACCOUNT_THRESHOLDS
         self.security_hub_filter = security_hub_filter_schema.validate(security_hub_filter) if security_hub_filter \
             else SECURITY_HUB_FILTER
-        self._landing_zone = LandingZone(landing_zone_name, self.landing_zone_thresholds, self.account_thresholds)
+        self._landing_zone = LandingZone(landing_zone_name, self.landing_zone_thresholds, self.account_thresholds) \
+            if not single_account else None
         self.allow_list = self._validate_account_ids(allow_list, self._landing_zone.account_ids) if allow_list else []
         self.deny_list = self._validate_account_ids(deny_list, self._landing_zone.account_ids) if deny_list else []
         self.allowed_regions = self._validate_regions(allowed_regions) if allowed_regions else []
@@ -100,6 +102,7 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
         self._frameworks = frameworks if self._security_hub.validate_frameworks(frameworks) \
             else ('cis', 'aws-foundational-security-best-practices')  # pylint: disable=no-member
         self._account_labels_counter = None
+        self.single_account = single_account
 
     @property
     def security_hub_findings(self):
@@ -190,13 +193,20 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
         labels = []
         self._logger.debug('Retrieving security hub findings')
         dataframe_measurements = pd.DataFrame(self.security_hub_measurement_data)
-        valid_account_ids = self._get_valid_account_ids()
-        for account in self._landing_zone.accounts:
-            self._logger.debug(f'Calculating energy label for account {account.id}')
-            labels.append(account.calculate_energy_label(dataframe_measurements))
-            if account.id in valid_account_ids:
-                self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
+        valid_account_ids = self._get_valid_account_ids() if not self.single_account else []
+        if self.single_account:
+            for account in dataframe_measurements['Account ID'].unique():
+                self._logger.debug(f'Calculating energy label for account {account}')
+                account = AwsAccount(account, account, None, self.account_thresholds)
+                labels.append(account.calculate_energy_label(dataframe_measurements))
                 labeled_accounts.append(account)
+        else:
+            for account in self._landing_zone.accounts:
+                self._logger.debug(f'Calculating energy label for account {account.id}')
+                labels.append(account.calculate_energy_label(dataframe_measurements))
+                if account.id in valid_account_ids:
+                    self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
+                    labeled_accounts.append(account)
         self._account_labels_counter.update(labels)
         return labeled_accounts
 
