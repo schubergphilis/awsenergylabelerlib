@@ -394,7 +394,7 @@ class Finding:  # pylint: disable=too-many-public-methods
 
     @property
     def measurement_data(self):
-        """Data used for computing the energy label."""
+        """Measurement data for computing the energy label."""
         return {
             'Finding ID': self.id,
             'Account ID': self.aws_account_id,
@@ -526,13 +526,13 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
         return findings
 
     def get_findings_measurement_data_for_frameworks(self, frameworks):
-        """Gets findings data based on provided frameworks.
+        """Gets measurement data from findings based on provided frameworks.
 
         Args:
-            frameworks: A list of valid frameworks for filter findings data on.
+            frameworks: A list of valid frameworks for filter measurement finding data on.
 
         Returns:
-            List of findings data matching the provided frameworks.
+            List of measurement data of findings matching the provided frameworks.
 
         """
         findings = self.get_findings_for_frameworks(frameworks)
