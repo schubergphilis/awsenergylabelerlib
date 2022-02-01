@@ -69,3 +69,9 @@ History
 ------------------
 
 * Introduced single account mode which opportunistically gets findings from SecurityHub
+
+
+0.4.1 (01-02-2022)
+------------------
+
+* Edited the filter to only include FAILED findings so NOT_AVAILABLE aren't counted as findings anymore
