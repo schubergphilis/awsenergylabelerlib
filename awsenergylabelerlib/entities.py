@@ -61,6 +61,10 @@ LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
+# self.allow_list = self._validate_account_ids(allow_list, self._landing_zone.account_ids) if allow_list else []
+# self.deny_list = self._validate_account_ids(deny_list, self._landing_zone.account_ids) if deny_list else []
+# self.allowed_regions = self._validate_regions(allowed_regions) if allowed_regions else []
+# self.denied_regions = self._validate_regions(denied_regions) if denied_regions else []
 
 class LandingZone:
     """Models the landing zone and retrieves accounts from it."""
@@ -153,7 +157,127 @@ class LandingZone:
         """
         return [account for account in self.accounts if account.id not in deny_list]
 
+    @staticmethod
+    def _validate_regions(regions):
 
+        def get_available_regions():
+            """The regions that security hub can be active in.
+
+            Returns:
+                regions (list): A list of strings of the regions that security hub can be active in.
+
+            """
+            url = 'https://api.regional-table.region-services.aws.a2z.com/index.json'
+            response = requests.get(url)
+            if not response.ok:
+                LOGGER.error('Failed to retrieve applicable AWS regions')
+                return []
+            return [entry.get('id', '').split(':')[1]
+                    for entry in response.json().get('prices')
+                    if entry.get('id').startswith('securityhub')]
+        all_available_regions = get_available_regions()
+
+        def validate_region(region):
+            return region in all_available_regions
+
+        def get_invalid_regions(regions_):
+            return set(regions_) - set(all_available_regions)
+
+        if not isinstance(regions, (list, tuple, str)):
+            raise InvalidRegionListProvided(f'Only list, tuple or string of regions is accepted input, '
+                                            f'received: {regions}')
+        if isinstance(regions, str):
+            regions = [regions] if validate_region(regions) else re.split(r'\s', regions)
+
+        invalid_regions = get_invalid_regions(regions)
+        if invalid_regions:
+            raise InvalidRegionListProvided(f'The list of regions provided is not a list with valid AWS regions'
+                                            f' {invalid_regions}')
+        return regions
+
+    def _get_valid_account_ids(self):
+        if self.allow_list:
+            self._logger.debug(f'Working on allow list {self.allow_list}')
+            account_ids = [account.id for account in self._landing_zone.get_allowed_accounts(self.allow_list)]
+        elif self.deny_list:
+            self._logger.debug(f'Working on deny list {self.deny_list}')
+            account_ids = [account.id for account in self._landing_zone.get_not_denied_accounts(self.deny_list)]
+        else:
+            self._logger.debug('Working on all landing zone accounts')
+            account_ids = [account.id for account in self._landing_zone.accounts]
+        return account_ids
+
+    @staticmethod
+    def _validate_account_ids(accounts, all_landing_zone_accounts):
+
+        def validate_account(account):
+            return all([len(account) == 12, account.isdigit(), not account.startswith('0')])
+
+        def validate_accounts(accounts_):
+            return all([validate_account(account) for account in accounts_])
+
+        if not isinstance(accounts, (list, tuple, str)):
+            raise InvalidAccountListProvided(f'Only list, tuple or string of accounts is accepted input, '
+                                             f'received: {accounts}')
+        if isinstance(accounts, str):
+            accounts = [accounts] if validate_account(accounts) else re.split('[^0-9]', accounts)
+        accounts = list({account for account in accounts if account})
+        if not all([validate_accounts(accounts),
+                    set(all_landing_zone_accounts).issuperset(set(accounts))]):
+            raise InvalidAccountListProvided(f'The list of accounts provided is not a list with valid AWS IDs'
+                                             f' {accounts}')
+        return accounts
+
+    @property
+    def labeled_accounts(self):
+        """Labeled accounts."""
+        self._account_labels_counter = Counter()
+        labeled_accounts = []
+        labels = []
+        self._logger.debug('Retrieving security hub findings')
+        dataframe_measurements = pd.DataFrame(self.security_hub_measurement_data)
+        valid_account_ids = self._get_valid_account_ids() if not self.single_account else []
+        if self.single_account:
+            for account in dataframe_measurements['Account ID'].unique():
+                self._logger.debug(f'Calculating energy label for account {account}')
+                account = AwsAccount(account, account, None, self.account_thresholds)
+                labels.append(account.calculate_energy_label(dataframe_measurements))
+                labeled_accounts.append(account)
+        else:
+            for account in self._landing_zone.accounts:
+                self._logger.debug(f'Calculating energy label for account {account.id}')
+                labels.append(account.calculate_energy_label(dataframe_measurements))
+                if account.id in valid_account_ids:
+                    self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
+                    labeled_accounts.append(account)
+        self._account_labels_counter.update(labels)
+        return labeled_accounts
+
+
+    def _create_energy_label(self, accounts_counter):
+        number_of_accounts = sum(accounts_counter.values())
+        self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
+        account_sums = []
+        labels = []
+        calculated_label = "F"
+        for threshold in self.landing_zone_thresholds:
+            label = threshold.get('label')
+            percentage = threshold.get('percentage')
+            labels.append(label)
+            account_sums.append(accounts_counter.get(label, 0))
+            self._logger.debug(f'Calculating for labels {labels} with threshold {percentage} '
+                               f'and sums of {account_sums}')
+            if sum(account_sums) / number_of_accounts * 100 >= percentage:
+                self._logger.debug(f'Found a match with label {label}')
+                calculated_label = label
+                break
+        return calculated_label
+
+
+        # account_counter = Counter()
+        # for account in self._landing_zone.labeled_accounts:
+        #     account_counter.update(account.energy_label)
+        # return self._create_energy_label(account_counter)
 @dataclass
 class AwsAccount:  # pylint: disable=too-many-instance-attributes
     """Models the aws account that can label itself."""
@@ -502,7 +626,11 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
             True if frameworks are valid False otherwise.
 
         """
-        return set(frameworks).issubset(_SecurityHub.frameworks)
+        if not isinstance(frameworks, (list, tuple, set)):
+            frameworks = [frameworks]
+        if set(frameworks).issubset(_SecurityHub.frameworks):
+            return frameworks
+        raise InvalidFrameworks
 
     def get_findings_for_frameworks(self, frameworks):
         """Gets findings based on provided frameworks.

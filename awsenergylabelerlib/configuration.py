@@ -82,8 +82,11 @@ LANDING_ZONE_THRESHOLDS = [{'label': 'A',
                             'percentage': 20}
                            ]
 
-SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
+DEFAULT_SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
                                                     'Unit': 'DAYS'}}
-                                     ],
+                                             ],
                        'ComplianceStatus': [{'Value': 'FAILED',
                                              'Comparison': 'EQUALS'}]}
+
+
+DEFAULT_SECURITY_HUB_FRAMEWORKS = ('cis', 'aws-foundational-security-best-practices')
