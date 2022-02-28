@@ -33,21 +33,26 @@ Import all parts from entities here
 """
 
 import logging
+import re
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 
 import boto3
 import botocore.errorfactory
 import botocore.exceptions
+import pandas as pd
+import requests
 from botocore.config import Config
 from cachetools import cached, TTLCache
 from opnieuw import retry
 
-from .configuration import DEFAULT_SECURITY_HUB_FRAMEWORKS
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             NoAccess,
-                                            NoRegion)
+                                            NoRegion,
+                                            InvalidRegionListProvided, InvalidAccountListProvided)
+from .configuration import DEFAULT_SECURITY_HUB_FRAMEWORKS
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -62,10 +67,6 @@ LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
-# self.allow_list = self._validate_account_ids(allow_list, self._landing_zone.account_ids) if allow_list else []
-# self.deny_list = self._validate_account_ids(deny_list, self._landing_zone.account_ids) if deny_list else []
-# self.allowed_regions = self._validate_regions(allowed_regions) if allowed_regions else []
-# self.denied_regions = self._validate_regions(denied_regions) if denied_regions else []
 
 class LandingZone:
     """Models the landing zone and retrieves accounts from it."""
@@ -76,6 +77,8 @@ class LandingZone:
         self.name = name
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
+        self.allow_list = self._validate_account_ids(allow_list, self.account_ids) if allow_list else []
+        self.deny_list = self._validate_account_ids(deny_list, self.account_ids) if deny_list else []
 
     @staticmethod
     def _get_client():
@@ -100,12 +103,10 @@ class LandingZone:
     def __repr__(self):
         return f'{self.name} landing zone'
 
-    @property
-    def energy_label(self):
+    def get_energy_label(self, security_hub_findings):
         pass
 
-    @property
-    def labeled_accounts_energy_label(self):
+    def get_labeled_accounts_energy_label(self, security_hub_findings):
         pass
 
     @property
@@ -142,78 +143,34 @@ class LandingZone:
         except self.organizations.exceptions.AccessDeniedException as msg:
             raise NoAccess(msg) from None
 
-    def get_allowed_accounts(self, allow_list):
+    def get_allowed_accounts(self):
         """Retrieves allowed accounts based on an allow list.
-
-        Args:
-            allow_list: A string of comma delimited accounts numbers or a list or tuple of account numbers.
 
         Returns:
             The list of accounts based on the allowed list.
 
         """
-        return [account for account in self.accounts if account.id in allow_list]
+        return [account for account in self.accounts if account.id in self.allow_list]
 
-    def get_not_denied_accounts(self, deny_list):
+    def get_not_denied_accounts(self):
         """Retrieves allowed accounts based on an deny list.
-
-        Args:
-            deny_list: A string of comma delimited accounts numbers or a list or tuple of account numbers.
 
         Returns:
             The list of accounts not on the deny list.
 
         """
-        return [account for account in self.accounts if account.id not in deny_list]
-
-    @staticmethod
-    def _validate_regions(regions):
-
-        def get_available_regions():
-            """The regions that security hub can be active in.
-
-            Returns:
-                regions (list): A list of strings of the regions that security hub can be active in.
-
-            """
-            url = 'https://api.regional-table.region-services.aws.a2z.com/index.json'
-            response = requests.get(url)
-            if not response.ok:
-                LOGGER.error('Failed to retrieve applicable AWS regions')
-                return []
-            return [entry.get('id', '').split(':')[1]
-                    for entry in response.json().get('prices')
-                    if entry.get('id').startswith('securityhub')]
-        all_available_regions = get_available_regions()
-
-        def validate_region(region):
-            return region in all_available_regions
-
-        def get_invalid_regions(regions_):
-            return set(regions_) - set(all_available_regions)
-
-        if not isinstance(regions, (list, tuple, str)):
-            raise InvalidRegionListProvided(f'Only list, tuple or string of regions is accepted input, '
-                                            f'received: {regions}')
-        if isinstance(regions, str):
-            regions = [regions] if validate_region(regions) else re.split(r'\s', regions)
-
-        invalid_regions = get_invalid_regions(regions)
-        if invalid_regions:
-            raise InvalidRegionListProvided(f'The list of regions provided is not a list with valid AWS regions'
-                                            f' {invalid_regions}')
-        return regions
+        return [account for account in self.accounts if account.id not in self.deny_list]
 
     def _get_valid_account_ids(self):
         if self.allow_list:
             self._logger.debug(f'Working on allow list {self.allow_list}')
-            account_ids = [account.id for account in self._landing_zone.get_allowed_accounts(self.allow_list)]
+            account_ids = [account.id for account in self.get_allowed_accounts(self.allow_list)]
         elif self.deny_list:
             self._logger.debug(f'Working on deny list {self.deny_list}')
-            account_ids = [account.id for account in self._landing_zone.get_not_denied_accounts(self.deny_list)]
+            account_ids = [account.id for account in self.get_not_denied_accounts(self.deny_list)]
         else:
             self._logger.debug('Working on all landing zone accounts')
-            account_ids = [account.id for account in self._landing_zone.accounts]
+            account_ids = [account.id for account in self.accounts]
         return account_ids
 
     @staticmethod
@@ -262,7 +219,6 @@ class LandingZone:
         self._account_labels_counter.update(labels)
         return labeled_accounts
 
-
     def _create_energy_label(self, accounts_counter):
         number_of_accounts = sum(accounts_counter.values())
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
@@ -282,11 +238,12 @@ class LandingZone:
                 break
         return calculated_label
 
-
         # account_counter = Counter()
         # for account in self._landing_zone.labeled_accounts:
         #     account_counter.update(account.energy_label)
         # return self._create_energy_label(account_counter)
+
+
 @dataclass
 class AwsAccount:  # pylint: disable=too-many-instance-attributes
     """Models the aws account that can label itself."""
@@ -340,9 +297,9 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
                                    f'{self.max_days_open} days')
                 for threshold in self.account_thresholds:
                     if self.number_of_critical_high_findings <= threshold['critical_high'] \
-                            and self.number_of_medium_findings <= threshold['medium'] \
-                            and self.number_of_low_findings <= threshold['low'] \
-                            and self.max_days_open < threshold['days_open_less_than']:
+                        and self.number_of_medium_findings <= threshold['medium'] \
+                        and self.number_of_low_findings <= threshold['low'] \
+                        and self.max_days_open < threshold['days_open_less_than']:
                         self.energy_label = threshold['label']
                         self._logger.debug(f'Energy Label for account {self.id} '
                                            f'has been calculated: {self.energy_label}')
@@ -569,8 +526,8 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
                  allowed_regions=None,
                  denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self.allowed_regions = allowed_regions
-        self.denied_regions = denied_regions
+        self.allowed_regions = self._validate_regions(allowed_regions)
+        self.denied_regions = self._validate_regions(denied_regions)
         self.sts = boto3.client('sts')
         self.ec2 = self._get_client(region)
         self.query_filter = query_filter
@@ -593,6 +550,47 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
         except (botocore.exceptions.ClientError, botocore.exceptions.NoCredentialsError) as msg:
             raise InvalidOrNoCredentials(msg) from None
         return client
+
+    @staticmethod
+    def _validate_regions(regions):
+        if regions is None:
+            return regions
+
+        def get_available_regions():
+            """The regions that security hub can be active in.
+
+            Returns:
+                regions (list): A list of strings of the regions that security hub can be active in.
+
+            """
+            url = 'https://api.regional-table.region-services.aws.a2z.com/index.json'
+            response = requests.get(url)
+            if not response.ok:
+                LOGGER.error('Failed to retrieve applicable AWS regions')
+                return []
+            return [entry.get('id', '').split(':')[1]
+                    for entry in response.json().get('prices')
+                    if entry.get('id').startswith('securityhub')]
+
+        all_available_regions = get_available_regions()
+
+        def validate_region(region):
+            return region in all_available_regions
+
+        def get_invalid_regions(regions_):
+            return set(regions_) - set(all_available_regions)
+
+        if not isinstance(regions, (list, tuple, str)):
+            raise InvalidRegionListProvided(f'Only list, tuple or string of regions is accepted input, '
+                                            f'received: {regions}')
+        if isinstance(regions, str):
+            regions = [regions] if validate_region(regions) else re.split(r'\s', regions)
+
+        invalid_regions = get_invalid_regions(regions)
+        if invalid_regions:
+            raise InvalidRegionListProvided(f'The list of regions provided is not a list with valid AWS regions'
+                                            f' {invalid_regions}')
+        return regions
 
     @property
     def regions(self):

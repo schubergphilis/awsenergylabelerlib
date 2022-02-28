@@ -68,7 +68,7 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments
                  frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
                  landing_zone_thresholds=LANDING_ZONE_THRESHOLDS,
                  account_thresholds=ACCOUNT_THRESHOLDS,
-                 default_security_hub_filter=DEFAULT_SECURITY_HUB_FILTER,
+                 security_hub_filter=DEFAULT_SECURITY_HUB_FILTER,
                  allow_list=None,
                  deny_list=None,
                  allowed_regions=None,
@@ -85,12 +85,21 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments
                                          self.account_thresholds,
                                          allow_list,
                                          deny_list)
-        self._security_hub = SecurityHub(query_filter=security_hub_filter_schema.validate(default_security_hub_filter),
+        self._security_hub = SecurityHub(query_filter=self._calculate_security_hub_query(security_hub_filter,
+                                                                                         allow_list,
+                                                                                         deny_list,
+                                                                                         frameworks),
                                          region=region,
                                          frameworks=frameworks,
                                          allowed_regions=allowed_regions,
                                          denied_regions=denied_regions)
         self._account_labels_counter = None
+
+    def _calculate_security_hub_query(self, default_filter, allow_list, deny_list, frameworks):
+        default_filter = security_hub_filter_schema.validate(default_filter)
+        # extend the filter to only target accounts mentioned in the allow list or not in the deny list and only
+        # frameworks requested.
+        return DEFAULT_SECURITY_HUB_FILTER
 
     @property
     def security_hub_findings(self):
@@ -106,9 +115,9 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments
     def landing_zone_energy_label(self):
         """Energy label of the landing zone."""
         self._logger.debug(f'Landing zone accounts labeled are {len(self._landing_zone.labeled_accounts)}')
-        return self._landing_zone.energy_label
+        return self._landing_zone.get_energy_label(self.security_hub_measurement_data)
 
     @property
     def labeled_accounts_energy_label(self):
         """Energy label of the labeled accounts."""
-        return self._landing_zone.labeled_accounts_energy_label
+        return self._landing_zone.get_labeled_accounts_energy_label(self.security_hub_measurement_data)
