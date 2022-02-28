@@ -77,8 +77,8 @@ class LandingZone:
         self.name = name
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
-        self.allow_list = self._validate_account_ids(allow_list, self.account_ids) if allow_list else []
-        self.deny_list = self._validate_account_ids(deny_list, self.account_ids) if deny_list else []
+        self.allow_list = self._validate_account_ids(allow_list, self.account_ids)
+        self.deny_list = self._validate_account_ids(deny_list, self.account_ids)
 
     @staticmethod
     def _get_client():
@@ -102,12 +102,6 @@ class LandingZone:
 
     def __repr__(self):
         return f'{self.name} landing zone'
-
-    def get_energy_label(self, security_hub_findings):
-        pass
-
-    def get_labeled_accounts_energy_label(self, security_hub_findings):
-        pass
 
     @property
     def account_ids(self):
@@ -175,6 +169,8 @@ class LandingZone:
 
     @staticmethod
     def _validate_account_ids(accounts, all_landing_zone_accounts):
+        if not accounts:
+            return []
 
         def validate_account(account):
             return all([len(account) == 12, account.isdigit(), not account.startswith('0')])
@@ -194,38 +190,31 @@ class LandingZone:
                                              f' {accounts}')
         return accounts
 
-    @property
-    def labeled_accounts(self):
+    def get_labeled_accounts_energy_label(self, security_hub_findings_data):
         """Labeled accounts."""
         self._account_labels_counter = Counter()
         labeled_accounts = []
         labels = []
-        self._logger.debug('Retrieving security hub findings')
-        dataframe_measurements = pd.DataFrame(self.security_hub_measurement_data)
-        valid_account_ids = self._get_valid_account_ids() if not self.single_account else []
-        if self.single_account:
-            for account in dataframe_measurements['Account ID'].unique():
-                self._logger.debug(f'Calculating energy label for account {account}')
-                account = AwsAccount(account, account, None, self.account_thresholds)
-                labels.append(account.calculate_energy_label(dataframe_measurements))
-                labeled_accounts.append(account)
-        else:
-            for account in self._landing_zone.accounts:
+        self._logger.debug('Calculating on security hub findings')
+        dataframe_measurements = pd.DataFrame(security_hub_findings_data)
+        valid_account_ids = self._get_valid_account_ids()
+        for account in self.accounts:
+            if account.id in valid_account_ids:
                 self._logger.debug(f'Calculating energy label for account {account.id}')
                 labels.append(account.calculate_energy_label(dataframe_measurements))
-                if account.id in valid_account_ids:
-                    self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
-                    labeled_accounts.append(account)
+                self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
+                labeled_accounts.append(account)
         self._account_labels_counter.update(labels)
         return labeled_accounts
 
-    def _create_energy_label(self, accounts_counter):
+
+    def get_energy_label(self, accounts_counter):
         number_of_accounts = sum(accounts_counter.values())
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
         account_sums = []
         labels = []
         calculated_label = "F"
-        for threshold in self.landing_zone_thresholds:
+        for threshold in self.thresholds:
             label = threshold.get('label')
             percentage = threshold.get('percentage')
             labels.append(label)
@@ -237,11 +226,6 @@ class LandingZone:
                 calculated_label = label
                 break
         return calculated_label
-
-        # account_counter = Counter()
-        # for account in self._landing_zone.labeled_accounts:
-        #     account_counter.update(account.energy_label)
-        # return self._create_energy_label(account_counter)
 
 
 @dataclass
@@ -522,7 +506,6 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
     def __init__(self,
                  query_filter,
                  region=None,
-                 frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
                  allowed_regions=None,
                  denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
@@ -615,7 +598,7 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
     @property
     @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     @cached(cache=TTLCache(maxsize=150000, ttl=3600))
-    def _findings(self):
+    def findings(self):
         findings = []
         for region in self.regions:
             self._logger.debug(f'Trying to get findings for region {region}')
@@ -653,36 +636,11 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
             return frameworks
         raise InvalidFrameworks
 
-    def get_findings_for_frameworks(self, frameworks):
-        """Gets findings based on provided frameworks.
-
-        Args:
-            frameworks: A list of valid frameworks for filter findings on.
-
-        Returns:
-            List of findings matching the provided frameworks.
-
-        """
-        if not isinstance(frameworks, (list, tuple)):
-            frameworks = [frameworks]
-        if not self.validate_frameworks(frameworks):
-            raise InvalidFrameworks(f'Only {self.frameworks} are supported, {frameworks} were provided.')
-        findings = []
-        for framework in frameworks:
-            self._logger.debug(f'Getting findings for framework : {framework}')
-            attribute = f'is_{framework.replace("-", "_")}'
-            findings.extend([finding for finding in self._findings if getattr(finding, attribute)])
-        return findings
-
-    def get_findings_measurement_data_for_frameworks(self, frameworks):
+    def findings_measurement_data(self):
         """Gets measurement data from findings based on provided frameworks.
-
-        Args:
-            frameworks: A list of valid frameworks for filter measurement finding data on.
 
         Returns:
             List of measurement data of findings matching the provided frameworks.
 
         """
-        findings = self.get_findings_for_frameworks(frameworks)
-        return [finding.measurement_data for finding in findings]
+        return [finding.measurement_data for finding in self.findings]
