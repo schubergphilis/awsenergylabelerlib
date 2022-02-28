@@ -32,7 +32,6 @@ Import all parts from configuration here
    http://google.github.io/styleguide/pyguide.html
 """
 
-
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
@@ -42,8 +41,7 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-
-ACCOUNT_THRESHOLDS = [{'label': 'A',
+ACCOUNT_THRESHOLDS = ({'label': 'A',
                        'critical_high': 0,
                        'medium': 10,
                        'low': 20,
@@ -68,9 +66,9 @@ ACCOUNT_THRESHOLDS = [{'label': 'A',
                        'medium': 50,
                        'low': 100,
                        'days_open_less_than': 999}
-                      ]
+                      )
 
-LANDING_ZONE_THRESHOLDS = [{'label': 'A',
+LANDING_ZONE_THRESHOLDS = ({'label': 'A',
                             'percentage': 90},
                            {'label': 'B',
                             'percentage': 70},
@@ -80,13 +78,12 @@ LANDING_ZONE_THRESHOLDS = [{'label': 'A',
                             'percentage': 30},
                            {'label': 'E',
                             'percentage': 20}
-                           ]
+                           )
 
 DEFAULT_SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
-                                                    'Unit': 'DAYS'}}
+                                                            'Unit': 'DAYS'}}
                                              ],
-                       'ComplianceStatus': [{'Value': 'FAILED',
-                                             'Comparison': 'EQUALS'}]}
-
+                               'ComplianceStatus': [{'Value': 'FAILED',
+                                                     'Comparison': 'EQUALS'}]}
 
 DEFAULT_SECURITY_HUB_FRAMEWORKS = ('cis', 'aws-foundational-security-best-practices')

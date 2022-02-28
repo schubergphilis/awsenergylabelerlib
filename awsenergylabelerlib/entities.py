@@ -43,6 +43,7 @@ from botocore.config import Config
 from cachetools import cached, TTLCache
 from opnieuw import retry
 
+from .configuration import DEFAULT_SECURITY_HUB_FRAMEWORKS
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             NoAccess,
@@ -69,7 +70,7 @@ LOGGER.addHandler(logging.NullHandler())
 class LandingZone:
     """Models the landing zone and retrieves accounts from it."""
 
-    def __init__(self, name, thresholds, account_thresholds):
+    def __init__(self, name, thresholds, account_thresholds, allow_list=None, deny_list=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.organizations = self._get_client()
         self.name = name
@@ -98,6 +99,14 @@ class LandingZone:
 
     def __repr__(self):
         return f'{self.name} landing zone'
+
+    @property
+    def energy_label(self):
+        pass
+
+    @property
+    def labeled_accounts_energy_label(self):
+        pass
 
     @property
     def account_ids(self):
@@ -533,9 +542,18 @@ class SecurityHub:  # pylint: disable=too-few-public-methods
 
     instance = None
 
-    def __new__(cls, query_filter, region=None, allowed_regions=None, denied_regions=None):
+    def __new__(cls,
+                query_filter,
+                region=None,
+                frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
+                allowed_regions=None,
+                denied_regions=None):
         if not SecurityHub.instance:
-            SecurityHub.instance = _SecurityHub(query_filter, region, allowed_regions, denied_regions)
+            SecurityHub.instance = _SecurityHub(query_filter,
+                                                region,
+                                                frameworks,
+                                                allowed_regions,
+                                                denied_regions)
         return SecurityHub.instance
 
 
@@ -544,7 +562,12 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
 
     frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
 
-    def __init__(self, query_filter, region=None, allowed_regions=None, denied_regions=None):
+    def __init__(self,
+                 query_filter,
+                 region=None,
+                 frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
+                 allowed_regions=None,
+                 denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.allowed_regions = allowed_regions
         self.denied_regions = denied_regions

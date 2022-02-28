@@ -32,20 +32,13 @@ Main code for awsenergylabelerlib.
 """
 
 import logging
-import re
-from collections import Counter
-import requests
 
-import pandas as pd
-
-from .awsenergylabelerlibexceptions import (InvalidAccountListProvided,
-                                            InvalidRegionListProvided,
-                                            MutuallyExclusiveArguments)
+from .awsenergylabelerlibexceptions import (MutuallyExclusiveArguments)
 from .configuration import (ACCOUNT_THRESHOLDS,
                             LANDING_ZONE_THRESHOLDS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             DEFAULT_SECURITY_HUB_FRAMEWORKS)
-from .entities import SecurityHub, LandingZone, AwsAccount
+from .entities import SecurityHub, LandingZone
 from .schemas import account_thresholds_schema, security_hub_filter_schema, landing_zone_thresholds_schema
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
@@ -65,9 +58,10 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-arguments
+class EnergyLabeler:  # pylint: disable=too-many-arguments
     """Labeling accounts and landing zone based on findings and label configurations."""
 
+    # pylint: disable=dangerous-default-value
     def __init__(self,
                  landing_zone_name,
                  region=None,
@@ -118,4 +112,3 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
     def labeled_accounts_energy_label(self):
         """Energy label of the labeled accounts."""
         return self._landing_zone.labeled_accounts_energy_label
-
