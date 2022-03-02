@@ -502,6 +502,8 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
             True if frameworks are valid False otherwise.
 
         """
+        if not isinstance(frameworks, (list, tuple, set)):
+            frameworks = [frameworks]
         return set(frameworks).issubset(_SecurityHub.frameworks)
 
     def get_findings_for_frameworks(self, frameworks):

@@ -86,4 +86,8 @@ SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
                                                     'Unit': 'DAYS'}}
                                      ],
                        'ComplianceStatus': [{'Value': 'FAILED',
-                                             'Comparison': 'EQUALS'}]}
+                                             'Comparison': 'EQUALS'}
+                                            ],
+                       'WorkflowStatus': [{'Value': 'SUPPRESSED',
+                                           'Comparison': 'NOT_EQUALS'}
+                                          ]}
