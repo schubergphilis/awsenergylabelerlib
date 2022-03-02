@@ -100,7 +100,7 @@ class EnergyLabeler:  # pylint: disable=too-many-instance-attributes, too-many-a
                                          allowed_regions=self.allowed_regions,
                                          denied_regions=self.denied_regions)
         self._frameworks = frameworks if self._security_hub.validate_frameworks(frameworks) \
-            else ('cis', 'aws-foundational-security-best-practices')  # pylint: disable=no-member
+            else {'cis', 'aws-foundational-security-best-practices'}  # pylint: disable=no-member
         self._account_labels_counter = None
         self.single_account = single_account
 
