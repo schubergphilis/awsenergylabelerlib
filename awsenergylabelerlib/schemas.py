@@ -47,11 +47,11 @@ __status__ = '''Development'''  # "Prototype", "Development", "Production".
 security_hub_filter_schema = Schema({'UpdatedAt': [{'DateRange': {'Unit': 'DAYS',
                                                                   'Value': And(int, lambda n: n > 0)}}]})
 
-account_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
+account_thresholds_schema = Schema(({'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
                                      'critical_high': And(int, lambda n: n >= 0),
                                      'medium': And(int, lambda n: n >= 0),
                                      'low': And(int, lambda n: n >= 0),
-                                     'days_open_less_than': And(int, lambda n: n > 0)}])
+                                     'days_open_less_than': And(int, lambda n: n > 0)}))
 
-landing_zone_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
-                                          'percentage': And(int, lambda n: 0 <= n <= 100)}])
+landing_zone_thresholds_schema = Schema(({'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
+                                          'percentage': And(int, lambda n: 0 <= n <= 100)}))

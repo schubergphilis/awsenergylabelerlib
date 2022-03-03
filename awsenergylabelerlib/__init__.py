@@ -32,7 +32,7 @@ Import all parts from awsenergylabelerlib here
    http://google.github.io/styleguide/pyguide.html
 """
 from ._version import __version__
-from .awsenergylabelerlib import EnergyLabeler
+from .awsenergylabelerlib import EnergyLabeler, LandingZone, SecurityHub
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             InvalidAccountListProvided,
@@ -53,6 +53,8 @@ __status__ = '''Development'''  # "Prototype", "Development", "Production".
 # This is to 'use' the module(s), so lint doesn't complain
 assert __version__
 assert EnergyLabeler
+assert LandingZone
+assert SecurityHub
 
 assert InvalidFrameworks
 assert InvalidOrNoCredentials

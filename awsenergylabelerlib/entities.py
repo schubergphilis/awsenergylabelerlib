@@ -63,7 +63,10 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-from .configuration import DEFAULT_SECURITY_HUB_FRAMEWORKS, DEFAULT_SECURITY_HUB_FILTER
+from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
+                            DEFAULT_SECURITY_HUB_FILTER,
+                            LANDING_ZONE_THRESHOLDS,
+                            ACCOUNT_THRESHOLDS)
 
 from .schemas import security_hub_filter_schema
 
@@ -72,19 +75,33 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
+@dataclass
+class LandingZoneEnergyLabel:  # pylint: disable=too-many-instance-attributes
+    """Models the landing zone energy label."""
+
+    label: str
+    coverage: int
+
+
 class LandingZone:  # pylint: disable=too-many-instance-attributes
     """Models the landing zone and retrieves accounts from it."""
 
     # pylint: disable=too-many-arguments
-    def __init__(self, name, thresholds, account_thresholds, allow_list=None, deny_list=None):
+    def __init__(self,
+                 name,
+                 thresholds=LANDING_ZONE_THRESHOLDS,
+                 account_thresholds=ACCOUNT_THRESHOLDS,
+                 allow_list=None,
+                 deny_list=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.organizations = self._get_client()
         self.name = name
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
-        self.allow_list = self._validate_account_ids(allow_list, self.account_ids)
-        self.deny_list = self._validate_account_ids(deny_list, self.account_ids)
-        self._account_ids_to_be_labeled = None
+        account_ids = [account.id for account in self.accounts]
+        self.allow_list = self._validate_account_ids(allow_list, account_ids)
+        self.deny_list = self._validate_account_ids(deny_list, account_ids)
+        self._accounts_to_be_labeled = None
 
     @staticmethod
     def _get_client():
@@ -108,16 +125,6 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
 
     def __repr__(self):
         return f'{self.name} landing zone'
-
-    @property
-    def account_ids(self):
-        """Accounts ids of the accounts.
-
-        Returns:
-            List of account ids for provided accounts
-
-        """
-        return [account.id for account in self.accounts]
 
     @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
@@ -162,26 +169,24 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         return [account for account in self.accounts if account.id not in self.deny_list]
 
     @property
-    def account_ids_to_be_labeled(self):
-        """Account IDs for accounts to be labeled according to the allow or deny list arguments.
+    def accounts_to_be_labeled(self):
+        """Account to be labeled according to the allow or deny list arguments.
 
         Returns:
-            account_ids (list): A list of account IDs to be labeled.
+            account (list): A list of accounts to be labeled.
 
         """
-        if self._account_ids_to_be_labeled is None:
+        if self._accounts_to_be_labeled is None:
             if self.allow_list:
                 self._logger.debug(f'Working on allow list {self.allow_list}')
-                self._account_ids_to_be_labeled = [account.id
-                                                   for account in self.get_allowed_accounts()]
+                self._accounts_to_be_labeled = [account for account in self.get_allowed_accounts()]
             elif self.deny_list:
                 self._logger.debug(f'Working on deny list {self.deny_list}')
-                self._account_ids_to_be_labeled = [account.id
-                                                   for account in self.get_not_denied_accounts()]
+                self._accounts_to_be_labeled = [account for account in self.get_not_denied_accounts()]
             else:
                 self._logger.debug('Working on all landing zone accounts')
-                self._account_ids_to_be_labeled = [account.id for account in self.accounts]
-        return self._account_ids_to_be_labeled
+                self._accounts_to_be_labeled = self.accounts
+        return self._accounts_to_be_labeled
 
     @staticmethod
     def _validate_account_ids(accounts, all_landing_zone_accounts):
@@ -206,33 +211,29 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                                              f' {accounts}')
         return accounts
 
-    def get_labeled_accounts_energy_label(self, security_hub_findings_data):
-        """Labeled accounts."""
-        self._account_labels_counter = Counter()
-        labeled_accounts = []
-        labels = []
-        self._logger.debug('Calculating on security hub findings')
-        dataframe_measurements = pd.DataFrame(security_hub_findings_data)
-        for account in self.accounts:
-            if account.id in self.account_ids_to_be_labeled:
-                self._logger.debug(f'Calculating energy label for account {account.id}')
-                labels.append(account.calculate_energy_label(dataframe_measurements))
-                self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
-                labeled_accounts.append(account)
-        self._account_labels_counter.update(labels)
-        return labeled_accounts
-
-    def get_energy_label(self, accounts_counter):
-        """Calculates and returns the energy label of the Landing Zone.
+    def label_targeted_accounts(self, security_hub_findings_data):
+        """
 
         Args:
-            accounts_counter:
+            security_hub_findings_data: The measurement data of all the findings for a landing zone.
 
         Returns:
-            energy_label (LandingZoneEnergyLabel): The labeling object of the landing zone.
+            labeled_accounts (list): A list of AwsAccount objects that have their labels calculated.
 
         """
-        number_of_accounts = sum(accounts_counter.values())
+        labeled_accounts = []
+        self._logger.debug('Calculating on security hub findings')
+        dataframe_measurements = pd.DataFrame(security_hub_findings_data)
+        for account in self.accounts_to_be_labeled:
+            self._logger.debug(f'Calculating energy label for account {account.id}')
+            account.calculate_energy_label(dataframe_measurements)
+            labeled_accounts.append(account)
+        return labeled_accounts
+
+    def get_energy_label_of_targeted_accounts(self, security_hub_findings_data):
+        labeled_accounts = self.label_targeted_accounts(security_hub_findings_data)
+        label_counter = Counter([account.energy_label for account in labeled_accounts])
+        number_of_accounts = len(labeled_accounts)
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
         account_sums = []
         labels = []
@@ -241,7 +242,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             label = threshold.get('label')
             percentage = threshold.get('percentage')
             labels.append(label)
-            account_sums.append(accounts_counter.get(label, 0))
+            account_sums.append(label_counter.get(label, 0))
             self._logger.debug(f'Calculating for labels {labels} with threshold {percentage} '
                                f'and sums of {account_sums}')
             if sum(account_sums) / number_of_accounts * 100 >= percentage:
@@ -249,6 +250,20 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                 calculated_label = label
                 break
         return calculated_label
+
+    def get_energy_label(self, security_hub_findings_data):
+        """Calculates and returns the energy label of the Landing Zone.
+
+        Args:
+            security_hub_findings_data: The measurement data of all the findings for a landing zone.
+
+        Returns:
+            energy_label (LandingZoneEnergyLabel): The labeling object of the landing zone.
+
+        """
+        label = self.get_energy_label_of_targeted_accounts(security_hub_findings_data)
+        coverage_percentage = len(self.accounts_to_be_labeled) / len(self.accounts) * 100
+        return LandingZoneEnergyLabel(label, coverage_percentage)
 
 
 @dataclass
@@ -300,10 +315,10 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
                                f'and findings have been open for over '
                                f'{self.max_days_open} days')
             for threshold in self.account_thresholds:
-                if all(self.number_of_critical_high_findings <= threshold['critical_high'],
-                       self.number_of_medium_findings <= threshold['medium'],
-                       self.number_of_low_findings <= threshold['low'],
-                       self.max_days_open < threshold['days_open_less_than']):
+                if all([self.number_of_critical_high_findings <= threshold['critical_high'],
+                        self.number_of_medium_findings <= threshold['medium'],
+                        self.number_of_low_findings <= threshold['low'],
+                        self.max_days_open < threshold['days_open_less_than']]):
                     self.energy_label = threshold['label']
                     self._logger.debug(f'Energy Label for account {self.id} '
                                        f'has been calculated: {self.energy_label}')
@@ -614,7 +629,7 @@ class SecurityHub:
         """Retrieves findings from security hub.
 
         Args:
-            query_filter: The query filter to execute on security hub to get the findings.
+            query_filter (dict): The query filter to execute on security hub to get the findings.
 
         Returns:
             findings (list): A list of findings from security hub.
@@ -659,14 +674,21 @@ class SecurityHub:
 
 
         Returns:
-            query_filter (str): The query filter calculated based on the provided arguments.
+            query_filter (dict): The query filter calculated based on the provided arguments.
 
         """
-        default_filter = security_hub_filter_schema.validate(default_filter)
-        frameworks = SecurityHub.validate_frameworks(frameworks)
+        # default_filter = security_hub_filter_schema.validate(default_filter)
+        # frameworks = SecurityHub.validate_frameworks(frameworks)
         # extend the filter to only target accounts mentioned in the allow list or not in the deny list and only
         # frameworks requested.
         _ = allow_list
         _ = deny_list
         query_filter = None
-        return query_filter
+        # return query_filter
+        return {'AwsAccountId': [{'Comparison': 'EQUALS', 'Value': '640104270105'},
+                                 {'Comparison': 'EQUALS', 'Value': '414637422251'},
+                                 {'Comparison': 'EQUALS', 'Value': '739997699629'},
+                                 {'Comparison': 'EQUALS', 'Value': '865487013379'}],
+                'ComplianceStatus': [{'Comparison': 'EQUALS', 'Value': 'FAILED'}],
+                'UpdatedAt': [{'DateRange': {'Unit': 'DAYS', 'Value': 7}}],
+                'WorkflowStatus': [{'Comparison': 'NOT_EQUALS', 'Value': 'SUPPRESSED'}]}
