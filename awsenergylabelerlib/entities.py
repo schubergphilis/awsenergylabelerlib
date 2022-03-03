@@ -631,7 +631,8 @@ class SecurityHub(metaclass=Singleton):  # pylint: disable=too-many-instance-att
                 continue
         return findings
 
-    def calculate_query_filter(self, default_filter, allow_list, deny_list, frameworks):
+    @staticmethod
+    def calculate_query_filter(default_filter, allow_list, deny_list, frameworks):
         default_filter = security_hub_filter_schema.validate(default_filter)
         # extend the filter to only target accounts mentioned in the allow list or not in the deny list and only
         # frameworks requested.
