@@ -63,6 +63,8 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
+from .configuration import DEFAULT_SECURITY_HUB_FRAMEWORKS, DEFAULT_SECURITY_HUB_FILTER
+
 from .schemas import security_hub_filter_schema
 
 LOGGER_BASENAME = '''entities'''
@@ -70,9 +72,10 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class LandingZone:
+class LandingZone:  # pylint: disable=too-many-instance-attributes
     """Models the landing zone and retrieves accounts from it."""
 
+    # pylint: disable=too-many-arguments
     def __init__(self, name, thresholds, account_thresholds, allow_list=None, deny_list=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.organizations = self._get_client()
@@ -81,6 +84,7 @@ class LandingZone:
         self.account_thresholds = account_thresholds
         self.allow_list = self._validate_account_ids(allow_list, self.account_ids)
         self.deny_list = self._validate_account_ids(deny_list, self.account_ids)
+        self._account_ids_to_be_labeled = None
 
     @staticmethod
     def _get_client():
@@ -133,7 +137,7 @@ class LandingZone:
         try:
             for page in iterator:
                 for account in page['Accounts']:
-                    account = AwsAccount(account.get('Id'), account.get('Name'), self, self.account_thresholds)
+                    account = AwsAccount(account.get('Id'), account.get('Name'), self.account_thresholds)
                     aws_accounts.append(account)
             return aws_accounts
         except self.organizations.exceptions.AccessDeniedException as msg:
@@ -157,17 +161,27 @@ class LandingZone:
         """
         return [account for account in self.accounts if account.id not in self.deny_list]
 
-    def _get_valid_account_ids(self):
-        if self.allow_list:
-            self._logger.debug(f'Working on allow list {self.allow_list}')
-            account_ids = [account.id for account in self.get_allowed_accounts(self.allow_list)]
-        elif self.deny_list:
-            self._logger.debug(f'Working on deny list {self.deny_list}')
-            account_ids = [account.id for account in self.get_not_denied_accounts(self.deny_list)]
-        else:
-            self._logger.debug('Working on all landing zone accounts')
-            account_ids = [account.id for account in self.accounts]
-        return account_ids
+    @property
+    def account_ids_to_be_labeled(self):
+        """Account IDs for accounts to be labeled according to the allow or deny list arguments.
+
+        Returns:
+            account_ids (list): A list of account IDs to be labeled.
+
+        """
+        if self._account_ids_to_be_labeled is None:
+            if self.allow_list:
+                self._logger.debug(f'Working on allow list {self.allow_list}')
+                self._account_ids_to_be_labeled = [account.id
+                                                   for account in self.get_allowed_accounts()]
+            elif self.deny_list:
+                self._logger.debug(f'Working on deny list {self.deny_list}')
+                self._account_ids_to_be_labeled = [account.id
+                                                   for account in self.get_not_denied_accounts()]
+            else:
+                self._logger.debug('Working on all landing zone accounts')
+                self._account_ids_to_be_labeled = [account.id for account in self.accounts]
+        return self._account_ids_to_be_labeled
 
     @staticmethod
     def _validate_account_ids(accounts, all_landing_zone_accounts):
@@ -199,9 +213,8 @@ class LandingZone:
         labels = []
         self._logger.debug('Calculating on security hub findings')
         dataframe_measurements = pd.DataFrame(security_hub_findings_data)
-        valid_account_ids = self._get_valid_account_ids()
         for account in self.accounts:
-            if account.id in valid_account_ids:
+            if account.id in self.account_ids_to_be_labeled:
                 self._logger.debug(f'Calculating energy label for account {account.id}')
                 labels.append(account.calculate_energy_label(dataframe_measurements))
                 self._logger.debug(f'Account id {account.id} is a required one, adding to the final report')
@@ -210,6 +223,15 @@ class LandingZone:
         return labeled_accounts
 
     def get_energy_label(self, accounts_counter):
+        """Calculates and returns the energy label of the Landing Zone.
+
+        Args:
+            accounts_counter:
+
+        Returns:
+            energy_label (LandingZoneEnergyLabel): The labeling object of the landing zone.
+
+        """
         number_of_accounts = sum(accounts_counter.values())
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
         account_sums = []
@@ -476,25 +498,12 @@ class Finding:  # pylint: disable=too-many-public-methods
         }
 
 
-class Singleton:
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = object.__new__(cls, *args, **kwargs)
-        return cls._instance
-
-
-class SecurityHub(metaclass=Singleton):  # pylint: disable=too-many-instance-attributes
+class SecurityHub:
     """Models security hub and can retrieve findings."""
 
     frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
 
-    def __init__(self,
-                 query_filter,
-                 region=None,
-                 allowed_regions=None,
-                 denied_regions=None):
+    def __init__(self, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         if all([allowed_regions, denied_regions]):
             raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
@@ -502,7 +511,6 @@ class SecurityHub(metaclass=Singleton):  # pylint: disable=too-many-instance-att
         self.denied_regions = self._validate_regions(denied_regions)
         self.sts = boto3.client('sts')
         self.ec2 = self._get_client(region)
-        self.query_filter = query_filter
         self._aws_regions = None
         self.aws_region = region if region in self.regions else self.sts._client_config.region_name  # noqa
 
@@ -603,13 +611,14 @@ class SecurityHub(metaclass=Singleton):  # pylint: disable=too-many-instance-att
 
     @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     def get_findings(self, query_filter):
-        """Retrieves findings from security hub and exposes them along with a
+        """Retrieves findings from security hub.
 
         Args:
             query_filter: The query filter to execute on security hub to get the findings.
 
         Returns:
             findings (list): A list of findings from security hub.
+
         """
         findings = []
         for region in self.regions:
@@ -632,8 +641,29 @@ class SecurityHub(metaclass=Singleton):  # pylint: disable=too-many-instance-att
         return findings
 
     @staticmethod
-    def calculate_query_filter(default_filter, allow_list, deny_list, frameworks):
+    def calculate_query_filter(default_filter=DEFAULT_SECURITY_HUB_FILTER,
+                               allow_list=None,
+                               deny_list=None,
+                               frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS):
+        """Calculates a Security Hub compatible filter for retrieving findings.
+
+        Depending on arguments provided for allow list, deny list and frameworks to retrieve a query is constructed to
+        retrieve only appropriate findings, offloading the filter on the back end.
+
+        Args:
+            default_filter: The default filter if no filter is provided.
+            allow_list: The allow list of account ids to get the findings for.
+            deny_list: The deny list of account ids to filter out findings for.
+            frameworks: The default frameworks if no frameworks are provided.
+
+
+        Returns:
+            query_filter (str): The query filter calculated based on the provided arguments.
+
+        """
         default_filter = security_hub_filter_schema.validate(default_filter)
+        frameworks = SecurityHub.validate_frameworks(frameworks)
         # extend the filter to only target accounts mentioned in the allow list or not in the deny list and only
         # frameworks requested.
-        return default_filter
+        query_filter = None
+        return query_filter

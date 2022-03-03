@@ -86,4 +86,4 @@ DEFAULT_SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
                                'ComplianceStatus': [{'Value': 'FAILED',
                                                      'Comparison': 'EQUALS'}]}
 
-DEFAULT_SECURITY_HUB_FRAMEWORKS = ('cis', 'aws-foundational-security-best-practices')
+DEFAULT_SECURITY_HUB_FRAMEWORKS = {'cis', 'aws-foundational-security-best-practices'}

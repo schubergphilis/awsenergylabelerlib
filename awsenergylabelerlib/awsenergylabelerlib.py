@@ -39,7 +39,7 @@ from .configuration import (ACCOUNT_THRESHOLDS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             DEFAULT_SECURITY_HUB_FRAMEWORKS)
 from .entities import SecurityHub, LandingZone
-from .schemas import account_thresholds_schema, security_hub_filter_schema, landing_zone_thresholds_schema
+from .schemas import account_thresholds_schema, landing_zone_thresholds_schema
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -58,7 +58,7 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class EnergyLabeler:  # pylint: disable=too-many-arguments
+class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-attributes
     """Labeling accounts and landing zone based on findings and label configurations."""
 
     # pylint: disable=dangerous-default-value
@@ -78,6 +78,9 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments
         if all([allowed_regions, denied_regions]):
             raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        self._frameworks = SecurityHub.validate_frameworks(frameworks)
+        self._security_hub_filter = security_hub_filter
+        self._query_filter = None
         self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
         self.account_thresholds = account_thresholds_schema.validate(account_thresholds)
         self._landing_zone = LandingZone(landing_zone_name,
@@ -85,31 +88,37 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments
                                          self.account_thresholds,
                                          allow_list,
                                          deny_list)
-        self._security_hub = SecurityHub(query_filter=self._calculate_security_hub_query(security_hub_filter,
-                                                                                         allow_list,
-                                                                                         deny_list,
-                                                                                         frameworks),
-                                         region=region,
+        self._security_hub = SecurityHub(region=region,
                                          allowed_regions=allowed_regions,
                                          denied_regions=denied_regions)
         self._account_labels_counter = None
 
     @property
+    def _security_hub_query_filter(self):
+        if self._query_filter is None:
+            self._query_filter = SecurityHub.calculate_query_filter(self._security_hub_filter,
+                                                                    self._landing_zone.allow_list,
+                                                                    self._landing_zone.deny_list,
+                                                                    self._frameworks)
+            self._logger.debug(f'Calculated query {self._query_filter} to execute on security hub.')
+        return self._query_filter
+
+    @property
     def security_hub_findings(self):
         """Security hub findings."""
-        return self._security_hub.findings
+        return self._security_hub.get_findings(self._security_hub_query_filter)
 
     @property
     def security_hub_measurement_data(self):
         """Measurement data from security hub findings."""
-        return self._security_hub.findings_measurement_data
+        return [finding.measurement_data for finding in self.security_hub_findings]
 
     @property
     def landing_zone_energy_label(self):
         """Energy label of the landing zone."""
         # TODO fix the counting of accounts and energy labels.
-        self._logger.debug(f'Landing zone accounts labeled are {len(self._landing_zone.labeled_accounts)}')
-        return self._landing_zone.get_energy_label(self.security_hub_measurement_data)
+        self._logger.debug(f'Landing zone accounts labeled are {len(self._landing_zone.account_ids_to_be_labeled)}')
+        return self._landing_zone.get_energy_label()
 
     @property
     def labeled_accounts_energy_label(self):
