@@ -640,6 +640,7 @@ class SecurityHub:
                 continue
         return findings
 
+    #  pylint: disable=dangerous-default-value
     @staticmethod
     def calculate_query_filter(default_filter=DEFAULT_SECURITY_HUB_FILTER,
                                allow_list=None,
@@ -665,5 +666,7 @@ class SecurityHub:
         frameworks = SecurityHub.validate_frameworks(frameworks)
         # extend the filter to only target accounts mentioned in the allow list or not in the deny list and only
         # frameworks requested.
+        _ = allow_list
+        _ = deny_list
         query_filter = None
         return query_filter
