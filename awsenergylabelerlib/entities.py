@@ -179,10 +179,10 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         if self._accounts_to_be_labeled is None:
             if self.allow_list:
                 self._logger.debug(f'Working on allow list {self.allow_list}')
-                self._accounts_to_be_labeled = [account for account in self.get_allowed_accounts()]
+                self._accounts_to_be_labeled = self.get_allowed_accounts()
             elif self.deny_list:
                 self._logger.debug(f'Working on deny list {self.deny_list}')
-                self._accounts_to_be_labeled = [account for account in self.get_not_denied_accounts()]
+                self._accounts_to_be_labeled = self.get_not_denied_accounts()
             else:
                 self._logger.debug('Working on all landing zone accounts')
                 self._accounts_to_be_labeled = self.accounts
@@ -212,7 +212,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         return accounts
 
     def label_targeted_accounts(self, security_hub_findings_data):
-        """
+        """Labels the accounts based on the allow and deny list provided.
 
         Args:
             security_hub_findings_data: The measurement data of all the findings for a landing zone.
@@ -231,6 +231,15 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         return labeled_accounts
 
     def get_energy_label_of_targeted_accounts(self, security_hub_findings_data):
+        """Get the energy label of the targeted accounts.
+
+        Args:
+            security_hub_findings_data: The measurement data of the security hub findings data.
+
+        Returns:
+            energy_label (str): The energy label of the targeted accounts.
+
+        """
         labeled_accounts = self.label_targeted_accounts(security_hub_findings_data)
         label_counter = Counter([account.energy_label for account in labeled_accounts])
         number_of_accounts = len(labeled_accounts)
