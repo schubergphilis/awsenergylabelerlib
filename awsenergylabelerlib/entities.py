@@ -51,8 +51,8 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             NoAccess,
                                             NoRegion,
-                                            InvalidRegionListProvided, InvalidAccountListProvided)
-from .configuration import DEFAULT_SECURITY_HUB_FRAMEWORKS
+                                            InvalidRegionListProvided, InvalidAccountListProvided,
+                                            MutuallyExclusiveArguments)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -62,6 +62,8 @@ __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
+
+from .schemas import security_hub_filter_schema
 
 LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
@@ -207,7 +209,6 @@ class LandingZone:
         self._account_labels_counter.update(labels)
         return labeled_accounts
 
-
     def get_energy_label(self, accounts_counter):
         number_of_accounts = sum(accounts_counter.values())
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
@@ -234,9 +235,8 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
 
     id: str  # pylint: disable=invalid-name
     name: str
-    landing_zone: LandingZone
     account_thresholds: list
-    energy_label: str = ""
+    energy_label: str = "F"
     number_of_critical_high_findings: int = 0
     number_of_medium_findings: int = 0
     number_of_low_findings: int = 0
@@ -255,41 +255,39 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
             The energy label of the account based on the provided configuration.
 
         """
-        if not self.energy_label:
-            self.energy_label = "F"
-            df = findings_measurements_frame  # pylint: disable=invalid-name
-            try:
-                open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
-                number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
-                number_of_high_findings = open_findings[open_findings['Severity'] == 'HIGH'].shape[0]
-                self.number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
-                self.number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
-                self.number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
-                open_findings_low_or_higher = open_findings[(open_findings['Severity'] == 'LOW') |
-                                                            (open_findings['Severity'] == 'MEDIUM') |
-                                                            (open_findings['Severity'] == 'HIGH') |
-                                                            (open_findings['Severity'] == 'CRITICAL')]
-                self.max_days_open = max(open_findings_low_or_higher['Days Open']) \
-                    if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
+        df = findings_measurements_frame  # pylint: disable=invalid-name
+        try:
+            open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
+            number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
+            number_of_high_findings = open_findings[open_findings['Severity'] == 'HIGH'].shape[0]
+            self.number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
+            self.number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
+            self.number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
+            open_findings_low_or_higher = open_findings[(open_findings['Severity'] == 'LOW') |
+                                                        (open_findings['Severity'] == 'MEDIUM') |
+                                                        (open_findings['Severity'] == 'HIGH') |
+                                                        (open_findings['Severity'] == 'CRITICAL')]
+            self.max_days_open = max(open_findings_low_or_higher['Days Open']) \
+                if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
 
-                self._logger.debug(f'Calculating for account {self.id} '
-                                   f'with number of critical+high findings '
-                                   f'{self.number_of_critical_high_findings}, '
-                                   f'number of medium findings {self.number_of_medium_findings}, '
-                                   f'number of low findings {self.number_of_low_findings}, '
-                                   f'and findings have been open for over '
-                                   f'{self.max_days_open} days')
-                for threshold in self.account_thresholds:
-                    if self.number_of_critical_high_findings <= threshold['critical_high'] \
-                        and self.number_of_medium_findings <= threshold['medium'] \
-                        and self.number_of_low_findings <= threshold['low'] \
-                        and self.max_days_open < threshold['days_open_less_than']:
-                        self.energy_label = threshold['label']
-                        self._logger.debug(f'Energy Label for account {self.id} '
-                                           f'has been calculated: {self.energy_label}')
-                        break
-            except Exception:  # pylint: disable=broad-except
-                self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
+            self._logger.debug(f'Calculating for account {self.id} '
+                               f'with number of critical+high findings '
+                               f'{self.number_of_critical_high_findings}, '
+                               f'number of medium findings {self.number_of_medium_findings}, '
+                               f'number of low findings {self.number_of_low_findings}, '
+                               f'and findings have been open for over '
+                               f'{self.max_days_open} days')
+            for threshold in self.account_thresholds:
+                if all(self.number_of_critical_high_findings <= threshold['critical_high'],
+                       self.number_of_medium_findings <= threshold['medium'],
+                       self.number_of_low_findings <= threshold['low'],
+                       self.max_days_open < threshold['days_open_less_than']):
+                    self.energy_label = threshold['label']
+                    self._logger.debug(f'Energy Label for account {self.id} '
+                                       f'has been calculated: {self.energy_label}')
+                    break
+        except Exception:  # pylint: disable=broad-except
+            self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
 
 
@@ -478,27 +476,16 @@ class Finding:  # pylint: disable=too-many-public-methods
         }
 
 
-class SecurityHub:  # pylint: disable=too-few-public-methods
-    """Singleton for security hub."""
+class Singleton:
+    _instance = None
 
-    instance = None
-
-    def __new__(cls,
-                query_filter,
-                region=None,
-                frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
-                allowed_regions=None,
-                denied_regions=None):
-        if not SecurityHub.instance:
-            SecurityHub.instance = _SecurityHub(query_filter,
-                                                region,
-                                                frameworks,
-                                                allowed_regions,
-                                                denied_regions)
-        return SecurityHub.instance
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = object.__new__(cls, *args, **kwargs)
+        return cls._instance
 
 
-class _SecurityHub:  # pylint: disable=too-many-instance-attributes
+class SecurityHub(metaclass=Singleton):  # pylint: disable=too-many-instance-attributes
     """Models security hub and can retrieve findings."""
 
     frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
@@ -509,6 +496,8 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
                  allowed_regions=None,
                  denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        if all([allowed_regions, denied_regions]):
+            raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
         self.allowed_regions = self._validate_regions(allowed_regions)
         self.denied_regions = self._validate_regions(denied_regions)
         self.sts = boto3.client('sts')
@@ -595,30 +584,6 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
             self._logger.debug('Working on all regions')
         return self._aws_regions
 
-    @property
-    @retry(retry_on_exceptions=botocore.exceptions.ClientError)
-    @cached(cache=TTLCache(maxsize=150000, ttl=3600))
-    def findings(self):
-        findings = []
-        for region in self.regions:
-            self._logger.debug(f'Trying to get findings for region {region}')
-            session = boto3.Session(region_name=region)
-            security_hub = session.client('securityhub')
-            paginator = security_hub.get_paginator('get_findings')
-            iterator = paginator.paginate(
-                Filters=self.query_filter
-            )
-            try:
-                for page in iterator:
-                    for finding_data in page['Findings']:
-                        finding = Finding(finding_data)
-                        self._logger.debug(f'Adding finding with id {finding.id}')
-                        findings.append(finding)
-            except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
-                self._logger.warning(f'Check your access for Security Hub for region {region}.')
-                continue
-        return findings
-
     @staticmethod
     def validate_frameworks(frameworks):
         """Validates provided frameworks.
@@ -632,15 +597,42 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
         """
         if not isinstance(frameworks, (list, tuple, set)):
             frameworks = [frameworks]
-        if set(frameworks).issubset(_SecurityHub.frameworks):
+        if set(frameworks).issubset(SecurityHub.frameworks):
             return frameworks
         raise InvalidFrameworks
 
-    def findings_measurement_data(self):
-        """Gets measurement data from findings based on provided frameworks.
+    @retry(retry_on_exceptions=botocore.exceptions.ClientError)
+    def get_findings(self, query_filter):
+        """Retrieves findings from security hub and exposes them along with a
+
+        Args:
+            query_filter: The query filter to execute on security hub to get the findings.
 
         Returns:
-            List of measurement data of findings matching the provided frameworks.
-
+            findings (list): A list of findings from security hub.
         """
-        return [finding.measurement_data for finding in self.findings]
+        findings = []
+        for region in self.regions:
+            self._logger.debug(f'Trying to get findings for region {region}')
+            session = boto3.Session(region_name=region)
+            security_hub = session.client('securityhub')
+            paginator = security_hub.get_paginator('get_findings')
+            iterator = paginator.paginate(
+                Filters=query_filter
+            )
+            try:
+                for page in iterator:
+                    for finding_data in page['Findings']:
+                        finding = Finding(finding_data)
+                        self._logger.debug(f'Adding finding with id {finding.id}')
+                        findings.append(finding)
+            except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
+                self._logger.warning(f'Check your access for Security Hub for region {region}.')
+                continue
+        return findings
+
+    def calculate_query_filter(self, default_filter, allow_list, deny_list, frameworks):
+        default_filter = security_hub_filter_schema.validate(default_filter)
+        # extend the filter to only target accounts mentioned in the allow list or not in the deny list and only
+        # frameworks requested.
+        return default_filter

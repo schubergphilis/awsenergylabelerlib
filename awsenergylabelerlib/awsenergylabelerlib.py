@@ -90,34 +90,29 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments
                                                                                          deny_list,
                                                                                          frameworks),
                                          region=region,
-                                         frameworks=frameworks,
                                          allowed_regions=allowed_regions,
                                          denied_regions=denied_regions)
         self._account_labels_counter = None
 
-    def _calculate_security_hub_query(self, default_filter, allow_list, deny_list, frameworks):
-        default_filter = security_hub_filter_schema.validate(default_filter)
-        # extend the filter to only target accounts mentioned in the allow list or not in the deny list and only
-        # frameworks requested.
-        return DEFAULT_SECURITY_HUB_FILTER
-
     @property
     def security_hub_findings(self):
         """Security hub findings."""
-        return self._security_hub.get_findings_for_frameworks()  # pylint: disable=no-member
+        return self._security_hub.findings
 
     @property
     def security_hub_measurement_data(self):
         """Measurement data from security hub findings."""
-        return self._security_hub.get_findings_measurement_data_for_frameworks()  # pylint: disable=no-member
+        return self._security_hub.findings_measurement_data
 
     @property
     def landing_zone_energy_label(self):
         """Energy label of the landing zone."""
+        # TODO fix the counting of accounts and energy labels.
         self._logger.debug(f'Landing zone accounts labeled are {len(self._landing_zone.labeled_accounts)}')
         return self._landing_zone.get_energy_label(self.security_hub_measurement_data)
 
     @property
     def labeled_accounts_energy_label(self):
         """Energy label of the labeled accounts."""
-        return self._landing_zone.get_labeled_accounts_energy_label(self.security_hub_measurement_data)
+        # TODO fix the argument passed in the underlying method
+        return self._landing_zone.get_labeled_accounts_energy_label()
