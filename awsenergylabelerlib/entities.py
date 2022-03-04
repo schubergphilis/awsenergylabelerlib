@@ -76,11 +76,22 @@ LOGGER.addHandler(logging.NullHandler())
 
 
 @dataclass
-class LandingZoneEnergyLabel:  # pylint: disable=too-many-instance-attributes
+class LandingZoneEnergyLabel:
     """Models the landing zone energy label."""
 
     label: str
-    coverage: int
+    coverage: str
+
+
+@dataclass
+class AccountEnergyLabel:
+    """Models the account energy label."""
+
+    label: str = "F"
+    number_of_critical_and_high: int = 9999
+    number_of_medium: int = 9999
+    number_of_low: int = 9999
+    max_days_open: int = 9999
 
 
 class LandingZone:  # pylint: disable=too-many-instance-attributes
@@ -241,7 +252,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
 
         """
         labeled_accounts = self.label_targeted_accounts(security_hub_findings_data)
-        label_counter = Counter([account.energy_label for account in labeled_accounts])
+        label_counter = Counter([account.energy_label.label for account in labeled_accounts])
         number_of_accounts = len(labeled_accounts)
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
         account_sums = []
@@ -282,7 +293,7 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
     id: str  # pylint: disable=invalid-name
     name: str
     account_thresholds: list
-    energy_label: str = "F"
+    energy_label: AccountEnergyLabel = AccountEnergyLabel()
     number_of_critical_high_findings: int = 0
     number_of_medium_findings: int = 0
     number_of_low_findings: int = 0
@@ -328,7 +339,11 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
                         self.number_of_medium_findings <= threshold['medium'],
                         self.number_of_low_findings <= threshold['low'],
                         self.max_days_open < threshold['days_open_less_than']]):
-                    self.energy_label = threshold['label']
+                    self.energy_label = AccountEnergyLabel(threshold['label'],
+                                                           self.number_of_critical_high_findings,
+                                                           self.number_of_medium_findings,
+                                                           self.number_of_low_findings,
+                                                           self.max_days_open)
                     self._logger.debug(f'Energy Label for account {self.id} '
                                        f'has been calculated: {self.energy_label}')
                     break
