@@ -88,3 +88,9 @@ History
 ------------------
 
 * Filtered out Archived findings.
+
+
+0.4.4 (04-03-2022)
+------------------
+
+* Filtered out archived findings.
