@@ -33,7 +33,7 @@ Main code for awsenergylabelerlib.
 
 import logging
 
-from .awsenergylabelerlibexceptions import (MutuallyExclusiveArguments)
+from cachetools import cached, TTLCache
 from .configuration import (ACCOUNT_THRESHOLDS,
                             LANDING_ZONE_THRESHOLDS,
                             DEFAULT_SECURITY_HUB_FILTER,
@@ -53,6 +53,8 @@ __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
 
 # This is the main prefix used for logging
+
+
 LOGGER_BASENAME = '''awsenergylabelerlib'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
@@ -73,18 +75,14 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                  deny_list=None,
                  allowed_regions=None,
                  denied_regions=None):
-        if all([allow_list, deny_list]):
-            raise MutuallyExclusiveArguments('allow_list and deny_list are mutually exclusive.')
-        if all([allowed_regions, denied_regions]):
-            raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self._frameworks = SecurityHub.validate_frameworks(frameworks)
         self._security_hub_filter = security_hub_filter
         self._query_filter = None
-        # self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
-        self.landing_zone_thresholds = landing_zone_thresholds
-        # self.account_thresholds = account_thresholds_schema.validate(account_thresholds)
-        self.account_thresholds = account_thresholds
+        self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
+        # self.landing_zone_thresholds = landing_zone_thresholds
+        self.account_thresholds = account_thresholds_schema.validate(account_thresholds)
+        # self.account_thresholds = account_thresholds
         self._landing_zone = LandingZone(landing_zone_name,
                                          self.landing_zone_thresholds,
                                          self.account_thresholds,
@@ -106,33 +104,18 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
         return self._query_filter
 
     @property
+    @cached(cache=TTLCache(maxsize=150000, ttl=120))
     def security_hub_findings(self):
         """Security hub findings."""
         return self._security_hub.get_findings(self._security_hub_query_filter)
 
     @property
-    def security_hub_measurement_data(self):
-        """Measurement data from security hub findings."""
-        return [finding.measurement_data for finding in self.security_hub_findings]
-
-    @property
     def landing_zone_energy_label(self):
         """Energy label of the landing zone."""
-        # TODO fix the counting of accounts and energy labels.
         self._logger.debug(f'Landing zone accounts labeled are {len(self._landing_zone.accounts_to_be_labeled)}')
-        query_filter = SecurityHub.calculate_query_filter(self._security_hub_filter,
-                                                          self._landing_zone.allow_list,
-                                                          self._landing_zone.deny_list,
-                                                          self._frameworks)
-        findings = self._security_hub.get_findings(query_filter)
-        return self._landing_zone.get_energy_label(findings)
+        return self._landing_zone.get_energy_label(self.security_hub_findings)
 
     @property
     def labeled_accounts_energy_label(self):
         """Energy label of the labeled accounts."""
-        query_filter = SecurityHub.calculate_query_filter(self._security_hub_filter,
-                                                          self._landing_zone.allow_list,
-                                                          self._landing_zone.deny_list,
-                                                          self._frameworks)
-        findings = self._security_hub.get_findings(query_filter)
-        return self._landing_zone.get_energy_label_of_targeted_accounts(findings)
+        return self._landing_zone.get_energy_label_of_targeted_accounts(self.security_hub_findings)

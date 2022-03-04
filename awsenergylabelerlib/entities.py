@@ -33,8 +33,8 @@ Import all parts from entities here
 """
 
 import logging
-import re
 from collections import Counter
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -42,7 +42,6 @@ import boto3
 import botocore.errorfactory
 import botocore.exceptions
 import pandas as pd
-import requests
 from botocore.config import Config
 from cachetools import cached, TTLCache
 from opnieuw import retry
@@ -51,16 +50,13 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             NoAccess,
                                             NoRegion,
-                                            InvalidRegionListProvided,
-                                            MutuallyExclusiveArguments,
                                             AccountsNotPartOfLandingZone)
-
 from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             LANDING_ZONE_THRESHOLDS,
                             ACCOUNT_THRESHOLDS)
+from .validations import validate_allow_deny_account_ids, validate_allow_deny_regions
 
-from .schemas import security_hub_filter_schema
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -71,7 +67,6 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-from .validations import validate_allow_deny_arguments
 
 LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
@@ -100,7 +95,7 @@ class AccountEnergyLabel:
 class LandingZone:  # pylint: disable=too-many-instance-attributes
     """Models the landing zone and retrieves accounts from it."""
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments,dangerous-default-value
     def __init__(self,
                  name,
                  thresholds=LANDING_ZONE_THRESHOLDS,
@@ -113,7 +108,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
         account_ids = [account.id for account in self.accounts]
-        allow_list, deny_list = validate_allow_deny_arguments(allow_list, deny_list)
+        allow_list, deny_list = validate_allow_deny_account_ids(allow_list, deny_list)
         self.allow_list = self._validate_landing_zone_account_ids(allow_list, account_ids)
         self.deny_list = self._validate_landing_zone_account_ids(deny_list, account_ids)
         self._accounts_to_be_labeled = None
@@ -127,9 +122,10 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             landing_zone_account_ids: All the landing zone account ids.
 
         Returns:
+            account_ids (list): A list of account ids that are part of the landing zone.
 
         Raises:
-            AccountsNotPartOfLandingZone
+            AccountsNotPartOfLandingZone: If account ids are not part of the current landing zone.
 
         """
         accounts_not_in_landing_zone = set(account_ids) - set(landing_zone_account_ids)
@@ -545,10 +541,7 @@ class SecurityHub:
 
     def __init__(self, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        if all([allowed_regions, denied_regions]):
-            raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
-        self.allowed_regions = self._validate_regions(allowed_regions)
-        self.denied_regions = self._validate_regions(denied_regions)
+        self.allowed_regions, self.denied_regions = validate_allow_deny_regions(allowed_regions, denied_regions)
         self.sts = boto3.client('sts')
         self.ec2 = self._get_client(region)
         self._aws_regions = None
@@ -570,47 +563,6 @@ class SecurityHub:
         except (botocore.exceptions.ClientError, botocore.exceptions.NoCredentialsError) as msg:
             raise InvalidOrNoCredentials(msg) from None
         return client
-
-    @staticmethod
-    def _validate_regions(regions):
-        if regions is None:
-            return regions
-
-        def get_available_regions():
-            """The regions that security hub can be active in.
-
-            Returns:
-                regions (list): A list of strings of the regions that security hub can be active in.
-
-            """
-            url = 'https://api.regional-table.region-services.aws.a2z.com/index.json'
-            response = requests.get(url)
-            if not response.ok:
-                LOGGER.error('Failed to retrieve applicable AWS regions')
-                return []
-            return [entry.get('id', '').split(':')[1]
-                    for entry in response.json().get('prices')
-                    if entry.get('id').startswith('securityhub')]
-
-        all_available_regions = get_available_regions()
-
-        def validate_region(region):
-            return region in all_available_regions
-
-        def get_invalid_regions(regions_):
-            return set(regions_) - set(all_available_regions)
-
-        if not isinstance(regions, (list, tuple, str)):
-            raise InvalidRegionListProvided(f'Only list, tuple or string of regions is accepted input, '
-                                            f'received: {regions}')
-        if isinstance(regions, str):
-            regions = [regions] if validate_region(regions) else re.split(r'\s', regions)
-
-        invalid_regions = get_invalid_regions(regions)
-        if invalid_regions:
-            raise InvalidRegionListProvided(f'The list of regions provided is not a list with valid AWS regions'
-                                            f' {invalid_regions}')
-        return regions
 
     @property
     def regions(self):
@@ -682,7 +634,7 @@ class SecurityHub:
 
     #  pylint: disable=dangerous-default-value
     @staticmethod
-    def calculate_query_filter(default_filter=DEFAULT_SECURITY_HUB_FILTER,
+    def calculate_query_filter(query_filter=DEFAULT_SECURITY_HUB_FILTER,
                                allow_list=None,
                                deny_list=None,
                                frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS):
@@ -692,7 +644,7 @@ class SecurityHub:
         retrieve only appropriate findings, offloading the filter on the back end.
 
         Args:
-            default_filter: The default filter if no filter is provided.
+            query_filter: The default filter if no filter is provided.
             allow_list: The allow list of account ids to get the findings for.
             deny_list: The deny list of account ids to filter out findings for.
             frameworks: The default frameworks if no frameworks are provided.
@@ -702,18 +654,13 @@ class SecurityHub:
             query_filter (dict): The query filter calculated based on the provided arguments.
 
         """
-        # default_filter = security_hub_filter_schema.validate(default_filter)
-        # frameworks = SecurityHub.validate_frameworks(frameworks)
-        # extend the filter to only target accounts mentioned in the allow list or not in the deny list and only
-        # frameworks requested.
-        _ = allow_list
-        _ = deny_list
-        query_filter = None
-        # return query_filter
-        return {'AwsAccountId': [{'Comparison': 'EQUALS', 'Value': '640104270105'},
-                                 {'Comparison': 'EQUALS', 'Value': '414637422251'},
-                                 {'Comparison': 'EQUALS', 'Value': '739997699629'},
-                                 {'Comparison': 'EQUALS', 'Value': '865487013379'}],
-                'ComplianceStatus': [{'Comparison': 'EQUALS', 'Value': 'FAILED'}],
-                'UpdatedAt': [{'DateRange': {'Unit': 'DAYS', 'Value': 7}}],
-                'WorkflowStatus': [{'Comparison': 'NOT_EQUALS', 'Value': 'SUPPRESSED'}]}
+        query_filter = deepcopy(query_filter)
+        frameworks = SecurityHub.validate_frameworks(frameworks)
+        allow_list, deny_list = validate_allow_deny_account_ids(allow_list, deny_list)
+        if any([allow_list, deny_list]):
+            comparison = 'EQUALS' if allow_list else 'NOT_EQUALS'
+            iterator = allow_list if allow_list else deny_list
+            aws_account_ids = [{'Comparison': comparison, 'Value': account} for account in iterator]
+            query_filter.update({'AwsAccountId': aws_account_ids})
+        # TODO extend the query filter with the frameworks
+        return query_filter

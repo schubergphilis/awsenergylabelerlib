@@ -32,6 +32,10 @@ Import all parts from configuration here
    http://google.github.io/styleguide/pyguide.html
 """
 
+import logging
+
+import requests
+
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
@@ -41,7 +45,11 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-ACCOUNT_THRESHOLDS = ({'label': 'A',
+LOGGER_BASENAME = '''configuration'''
+LOGGER = logging.getLogger(LOGGER_BASENAME)
+LOGGER.addHandler(logging.NullHandler())
+
+ACCOUNT_THRESHOLDS = [{'label': 'A',
                        'critical_high': 0,
                        'medium': 10,
                        'low': 20,
@@ -65,10 +73,9 @@ ACCOUNT_THRESHOLDS = ({'label': 'A',
                        'critical_high': 25,
                        'medium': 50,
                        'low': 100,
-                       'days_open_less_than': 999}
-                      )
+                       'days_open_less_than': 999}]
 
-LANDING_ZONE_THRESHOLDS = ({'label': 'A',
+LANDING_ZONE_THRESHOLDS = [{'label': 'A',
                             'percentage': 90},
                            {'label': 'B',
                             'percentage': 70},
@@ -77,13 +84,35 @@ LANDING_ZONE_THRESHOLDS = ({'label': 'A',
                            {'label': 'D',
                             'percentage': 30},
                            {'label': 'E',
-                            'percentage': 20}
-                           )
+                            'percentage': 20}]
 
 DEFAULT_SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
-                                                            'Unit': 'DAYS'}}
-                                             ],
+                                                            'Unit': 'DAYS'}}],
                                'ComplianceStatus': [{'Value': 'FAILED',
-                                                     'Comparison': 'EQUALS'}]}
+                                                     'Comparison': 'EQUALS'}],
+                               'WorkflowStatus': [{'Value': 'SUPPRESSED',
+                                                   'Comparison': 'NOT_EQUALS'}],
+                               'RecordState': [{'Value': 'ARCHIVED',
+                                                'Comparison': 'NOT_EQUALS'}]}
 
 DEFAULT_SECURITY_HUB_FRAMEWORKS = {'cis', 'aws-foundational-security-best-practices'}
+
+
+def get_available_regions():
+    """The regions that security hub can be active in.
+
+    Returns:
+        regions (list): A list of strings of the regions that security hub can be active in.
+
+    """
+    url = 'https://api.regional-table.region-services.aws.a2z.com/index.json'
+    response = requests.get(url)
+    if not response.ok:
+        LOGGER.error('Failed to retrieve applicable AWS regions')
+        return []
+    return [entry.get('id', '').split(':')[1]
+            for entry in response.json().get('prices')
+            if entry.get('id').startswith('securityhub')]
+
+
+SECURITY_HUB_ACTIVE_REGIONS = get_available_regions()

@@ -31,8 +31,13 @@ Import all parts from schemas here
 .. _Google Python Style Guide:
    http://google.github.io/styleguide/pyguide.html
 """
+
 import re
-from .awsenergylabelerlibexceptions import InvalidAccountListProvided, MutuallyExclusiveArguments
+import logging
+
+from .configuration import SECURITY_HUB_ACTIVE_REGIONS
+from .awsenergylabelerlibexceptions import InvalidAccountListProvided, MutuallyExclusiveArguments, \
+    InvalidRegionListProvided
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -42,6 +47,11 @@ __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
+
+
+LOGGER_BASENAME = '''validations'''
+LOGGER = logging.getLogger(LOGGER_BASENAME)
+LOGGER.addHandler(logging.NullHandler())
 
 
 def is_valid_account_id(account_id):
@@ -94,7 +104,7 @@ def validate_account_ids(account_ids):
     return account_ids
 
 
-def validate_allow_deny_arguments(allow_list=None, deny_list=None):
+def validate_allow_deny_account_ids(allow_list=None, deny_list=None):
     """Validates provided allow and deny account id lists.
 
     Not both arguments can contain values as they are logically mutually exclusive. The validations process also
@@ -115,3 +125,81 @@ def validate_allow_deny_arguments(allow_list=None, deny_list=None):
     if all([allow_list, deny_list]):
         raise MutuallyExclusiveArguments('allow_list and deny_list are mutually exclusive.')
     return validate_account_ids(allow_list), validate_account_ids(deny_list)
+
+
+def is_valid_region(region):
+    """Checks whether a region provided is a valid Security Hub Region.
+
+    Args:
+        region: The region to check
+
+    Returns:
+        True if Security Hub is active in that region, False otherwise.
+
+    """
+    return region in SECURITY_HUB_ACTIVE_REGIONS
+
+
+def get_invalid_regions(regions):
+    """Calculates if regions are not valid for security hub.
+
+    Args:
+        regions: The regions to check
+
+    Returns:
+        A set of regions that security hub is not active in
+
+    """
+    return set(regions) - set(SECURITY_HUB_ACTIVE_REGIONS)
+
+
+def validate_regions(regions):
+    """Validates provided argument of regions for security hub.
+
+    Args:
+        regions: A string or iterable of regions that security hub should be active in.
+
+    Returns:
+        A list of valid regions if successful.
+
+    Raises:
+        InvalidRegionListProvided: If the regions provided are not valid for security hub.
+
+    """
+    if regions is None:
+        return regions
+
+    if not isinstance(regions, (list, tuple, set, str)):
+        raise InvalidRegionListProvided(f'Only list, tuple, set or string of regions is accepted input, '
+                                        f'received: {regions}')
+    if isinstance(regions, str):
+        regions = [regions] if is_valid_region(regions) else re.split(r'\s', regions)
+
+    invalid_regions = get_invalid_regions(regions)
+    if invalid_regions:
+        raise InvalidRegionListProvided(f'The following regions provided are not valid for Security Hub. '
+                                        f'{invalid_regions}')
+    return regions
+
+
+def validate_allow_deny_regions(allowed_regions=None, denied_regions=None):
+    """Validates provided allow and deny regions.
+
+    Not both arguments can contain values as they are logically mutually exclusive. The validations process also
+    validates that the arguments contain valid regions if provided.
+
+    Args:
+        allowed_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the deny
+        denied_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the allow
+
+    Returns:
+        allowed_regions, denied_regions: A tuple of list values with valid regions
+
+    Raises:
+        MutuallyExclusiveArguments: If both arguments contain values.
+        InvalidRegionListProvided: If any of the provided regions is not a valid Security Hub region.
+
+    """
+    if all([allowed_regions, denied_regions]):
+        raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
+    return validate_regions(allowed_regions), validate_regions(denied_regions)

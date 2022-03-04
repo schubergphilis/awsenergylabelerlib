@@ -40,7 +40,8 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             MutuallyExclusiveArguments,
                                             NoAccess,
                                             NoRegion,
-                                            AccountsNotPartOfLandingZone)
+                                            AccountsNotPartOfLandingZone,
+                                            UnableToRetrieveSecurityHubRegions)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -65,3 +66,4 @@ assert MutuallyExclusiveArguments
 assert NoAccess
 assert NoRegion
 assert AccountsNotPartOfLandingZone
+assert UnableToRetrieveSecurityHubRegions
