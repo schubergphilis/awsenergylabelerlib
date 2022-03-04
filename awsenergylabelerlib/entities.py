@@ -358,6 +358,21 @@ class Finding:  # pylint: disable=too-many-public-methods
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        """Override the default equals behavior."""
+        if not isinstance(other, Finding):
+            raise ValueError('Not a Finding object')
+        return hash(self) == hash(other)
+
+    def __ne__(self, other):
+        """Override the default unequal behavior."""
+        if not isinstance(other, Finding):
+            raise ValueError('Not a Finding object')
+        return hash(self) != hash(other)
+
     @property
     def aws_account_id(self):
         """Account id."""
@@ -612,7 +627,7 @@ class SecurityHub:
             findings (list): A list of findings from security hub.
 
         """
-        findings = []
+        findings = set()
         for region in self.regions:
             self._logger.debug(f'Trying to get findings for region {region}')
             session = boto3.Session(region_name=region)
@@ -626,11 +641,12 @@ class SecurityHub:
                     for finding_data in page['Findings']:
                         finding = Finding(finding_data)
                         self._logger.debug(f'Adding finding with id {finding.id}')
-                        findings.append(finding)
+                        findings.add(finding)
             except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
                 self._logger.warning(f'Check your access for Security Hub for region {region}.')
                 continue
-        return findings
+        return list(findings)
+        # return findings
 
     #  pylint: disable=dangerous-default-value
     @staticmethod

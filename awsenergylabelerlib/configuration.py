@@ -36,6 +36,8 @@ import logging
 
 import requests
 
+from .awsenergylabelerlibexceptions import UnableToRetrieveSecurityHubRegions
+
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
@@ -108,8 +110,8 @@ def get_available_regions():
     url = 'https://api.regional-table.region-services.aws.a2z.com/index.json'
     response = requests.get(url)
     if not response.ok:
-        LOGGER.error('Failed to retrieve applicable AWS regions')
-        return []
+        raise UnableToRetrieveSecurityHubRegions(f'Failed to retrieve applicable AWS regions, response was '
+                                                 f':{response.text}')
     return [entry.get('id', '').split(':')[1]
             for entry in response.json().get('prices')
             if entry.get('id').startswith('securityhub')]
