@@ -82,3 +82,9 @@ History
 
 * Suppressed findings are no longer counted into the calculation.
 * Framework validation works as expected now.
+
+
+0.4.3 (04-03-2022)
+------------------
+
+* Filtered out Archived findings.
