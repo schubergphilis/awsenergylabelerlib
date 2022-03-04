@@ -90,4 +90,7 @@ SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
                                             ],
                        'WorkflowStatus': [{'Value': 'SUPPRESSED',
                                            'Comparison': 'NOT_EQUALS'}
-                                          ]}
+                                          ],
+                       'RecordState': [{'Value': 'ARCHIVED',
+                                        'Comparison': 'NOT_EQUALS'}
+                                       ]}
