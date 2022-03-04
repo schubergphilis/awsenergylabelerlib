@@ -68,3 +68,7 @@ class NoAccess(Exception):
 
 class NoRegion(Exception):
     """No region is set on the environment or priveded to the library."""
+
+
+class AccountsNotPartOfLandingZone(Exception):
+    """If accounts ids are provided but are not part of the landing zone."""

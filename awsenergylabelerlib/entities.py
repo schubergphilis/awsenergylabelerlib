@@ -51,8 +51,16 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             NoAccess,
                                             NoRegion,
-                                            InvalidRegionListProvided, InvalidAccountListProvided,
-                                            MutuallyExclusiveArguments)
+                                            InvalidRegionListProvided,
+                                            MutuallyExclusiveArguments,
+                                            AccountsNotPartOfLandingZone)
+
+from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
+                            DEFAULT_SECURITY_HUB_FILTER,
+                            LANDING_ZONE_THRESHOLDS,
+                            ACCOUNT_THRESHOLDS)
+
+from .schemas import security_hub_filter_schema
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -63,12 +71,7 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
-                            DEFAULT_SECURITY_HUB_FILTER,
-                            LANDING_ZONE_THRESHOLDS,
-                            ACCOUNT_THRESHOLDS)
-
-from .schemas import security_hub_filter_schema
+from .validations import validate_allow_deny_arguments
 
 LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
@@ -110,9 +113,30 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
         account_ids = [account.id for account in self.accounts]
-        self.allow_list = self._validate_account_ids(allow_list, account_ids)
-        self.deny_list = self._validate_account_ids(deny_list, account_ids)
+        allow_list, deny_list = validate_allow_deny_arguments(allow_list, deny_list)
+        self.allow_list = self._validate_landing_zone_account_ids(allow_list, account_ids)
+        self.deny_list = self._validate_landing_zone_account_ids(deny_list, account_ids)
         self._accounts_to_be_labeled = None
+
+    @staticmethod
+    def _validate_landing_zone_account_ids(account_ids, landing_zone_account_ids):
+        """Validates that a provided list of valid AWS account ids are actually part of the landing zone.
+
+        Args:
+            account_ids: A list of valid AWS account ids.
+            landing_zone_account_ids: All the landing zone account ids.
+
+        Returns:
+
+        Raises:
+            AccountsNotPartOfLandingZone
+
+        """
+        accounts_not_in_landing_zone = set(account_ids) - set(landing_zone_account_ids)
+        if accounts_not_in_landing_zone:
+            raise AccountsNotPartOfLandingZone(f'The following account ids provided are not part of the landing zone :'
+                                               f' {accounts_not_in_landing_zone}')
+        return account_ids
 
     @staticmethod
     def _get_client():
@@ -199,34 +223,11 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                 self._accounts_to_be_labeled = self.accounts
         return self._accounts_to_be_labeled
 
-    @staticmethod
-    def _validate_account_ids(accounts, all_landing_zone_accounts):
-        if not accounts:
-            return []
-
-        def validate_account(account):
-            return all([len(account) == 12, account.isdigit(), not account.startswith('0')])
-
-        def validate_accounts(accounts_):
-            return all([validate_account(account) for account in accounts_])
-
-        if not isinstance(accounts, (list, tuple, str)):
-            raise InvalidAccountListProvided(f'Only list, tuple or string of accounts is accepted input, '
-                                             f'received: {accounts}')
-        if isinstance(accounts, str):
-            accounts = [accounts] if validate_account(accounts) else re.split('[^0-9]', accounts)
-        accounts = list({account for account in accounts if account})
-        if not all([validate_accounts(accounts),
-                    set(all_landing_zone_accounts).issuperset(set(accounts))]):
-            raise InvalidAccountListProvided(f'The list of accounts provided is not a list with valid AWS IDs'
-                                             f' {accounts}')
-        return accounts
-
-    def label_targeted_accounts(self, security_hub_findings_data):
+    def label_targeted_accounts(self, security_hub_findings):
         """Labels the accounts based on the allow and deny list provided.
 
         Args:
-            security_hub_findings_data: The measurement data of all the findings for a landing zone.
+            security_hub_findings: The findings for a landing zone.
 
         Returns:
             labeled_accounts (list): A list of AwsAccount objects that have their labels calculated.
@@ -234,24 +235,24 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         """
         labeled_accounts = []
         self._logger.debug('Calculating on security hub findings')
-        dataframe_measurements = pd.DataFrame(security_hub_findings_data)
+        dataframe_measurements = pd.DataFrame([finding.measurement_data for finding in security_hub_findings])
         for account in self.accounts_to_be_labeled:
             self._logger.debug(f'Calculating energy label for account {account.id}')
             account.calculate_energy_label(dataframe_measurements)
             labeled_accounts.append(account)
         return labeled_accounts
 
-    def get_energy_label_of_targeted_accounts(self, security_hub_findings_data):
+    def get_energy_label_of_targeted_accounts(self, security_hub_findings):
         """Get the energy label of the targeted accounts.
 
         Args:
-            security_hub_findings_data: The measurement data of the security hub findings data.
+            security_hub_findings: The findings from security hub.
 
         Returns:
             energy_label (str): The energy label of the targeted accounts.
 
         """
-        labeled_accounts = self.label_targeted_accounts(security_hub_findings_data)
+        labeled_accounts = self.label_targeted_accounts(security_hub_findings)
         label_counter = Counter([account.energy_label.label for account in labeled_accounts])
         number_of_accounts = len(labeled_accounts)
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
@@ -271,19 +272,19 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                 break
         return calculated_label
 
-    def get_energy_label(self, security_hub_findings_data):
+    def get_energy_label(self, security_hub_findings):
         """Calculates and returns the energy label of the Landing Zone.
 
         Args:
-            security_hub_findings_data: The measurement data of all the findings for a landing zone.
+            security_hub_findings: The measurement data of all the findings for a landing zone.
 
         Returns:
             energy_label (LandingZoneEnergyLabel): The labeling object of the landing zone.
 
         """
-        label = self.get_energy_label_of_targeted_accounts(security_hub_findings_data)
+        label = self.get_energy_label_of_targeted_accounts(security_hub_findings)
         coverage_percentage = len(self.accounts_to_be_labeled) / len(self.accounts) * 100
-        return LandingZoneEnergyLabel(label, coverage_percentage)
+        return LandingZoneEnergyLabel(label, f'{coverage_percentage:.2f}%')
 
 
 @dataclass
@@ -345,7 +346,7 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
                                                            self.number_of_low_findings,
                                                            self.max_days_open)
                     self._logger.debug(f'Energy Label for account {self.id} '
-                                       f'has been calculated: {self.energy_label}')
+                                       f'has been calculated: {self.energy_label.label}')
                     break
         except Exception:  # pylint: disable=broad-except
             self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
@@ -646,7 +647,7 @@ class SecurityHub:
             frameworks = [frameworks]
         if set(frameworks).issubset(SecurityHub.frameworks):
             return frameworks
-        raise InvalidFrameworks
+        raise InvalidFrameworks(frameworks)
 
     @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     def get_findings(self, query_filter):

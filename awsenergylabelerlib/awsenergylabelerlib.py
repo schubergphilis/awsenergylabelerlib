@@ -125,7 +125,7 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                                                           self._landing_zone.deny_list,
                                                           self._frameworks)
         findings = self._security_hub.get_findings(query_filter)
-        return self._landing_zone.get_energy_label([finding.measurement_data for finding in findings])
+        return self._landing_zone.get_energy_label(findings)
 
     @property
     def labeled_accounts_energy_label(self):
@@ -135,5 +135,4 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                                                           self._landing_zone.deny_list,
                                                           self._frameworks)
         findings = self._security_hub.get_findings(query_filter)
-        return self._landing_zone.get_energy_label_of_targeted_accounts([finding.measurement_data
-                                                                         for finding in findings])
+        return self._landing_zone.get_energy_label_of_targeted_accounts(findings)
