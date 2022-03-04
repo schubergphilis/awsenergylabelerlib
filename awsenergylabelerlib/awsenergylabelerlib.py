@@ -51,7 +51,6 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-
 # This is the main prefix used for logging
 
 
@@ -67,38 +66,42 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
     def __init__(self,
                  landing_zone_name,
                  region=None,
-                 frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
-                 landing_zone_thresholds=LANDING_ZONE_THRESHOLDS,
                  account_thresholds=ACCOUNT_THRESHOLDS,
+                 landing_zone_thresholds=LANDING_ZONE_THRESHOLDS,
                  security_hub_filter=DEFAULT_SECURITY_HUB_FILTER,
-                 allow_list=None,
-                 deny_list=None,
-                 allowed_regions=None,
-                 denied_regions=None):
+                 frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
+                 allow_account_ids=None,
+                 deny_account_ids=None,
+                 allow_regions=None,
+                 deny_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self._frameworks = SecurityHub.validate_frameworks(frameworks)
-        self._security_hub_filter = security_hub_filter
-        self._query_filter = None
-        self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
-        # self.landing_zone_thresholds = landing_zone_thresholds
         self.account_thresholds = account_thresholds_schema.validate(account_thresholds)
-        # self.account_thresholds = account_thresholds
+        self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
+        self._security_hub_filter = security_hub_filter
+        self._frameworks = SecurityHub.validate_frameworks(frameworks)
         self._landing_zone = LandingZone(landing_zone_name,
                                          self.landing_zone_thresholds,
                                          self.account_thresholds,
-                                         allow_list,
-                                         deny_list)
+                                         allow_account_ids,
+                                         deny_account_ids)
         self._security_hub = SecurityHub(region=region,
-                                         allowed_regions=allowed_regions,
-                                         denied_regions=denied_regions)
+                                         allow_regions=allow_regions,
+                                         deny_regions=deny_regions)
         self._account_labels_counter = None
+        self._query_filter = None
 
     @property
     def _security_hub_query_filter(self):
+        """Calculates and saves the security hub query filter based on the configuration of the landing zone args.
+
+        Returns:
+            query_filter (dict): The query filter constructed and cached.
+
+        """
         if self._query_filter is None:
             self._query_filter = SecurityHub.calculate_query_filter(self._security_hub_filter,
-                                                                    self._landing_zone.allow_list,
-                                                                    self._landing_zone.deny_list,
+                                                                    self._landing_zone.allow_account_ids,
+                                                                    self._landing_zone.deny_account_ids,
                                                                     self._frameworks)
             self._logger.debug(f'Calculated query {self._query_filter} to execute on security hub.')
         return self._query_filter

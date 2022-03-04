@@ -57,7 +57,6 @@ from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             ACCOUNT_THRESHOLDS)
 from .validations import validate_allow_deny_account_ids, validate_allow_deny_regions
 
-
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
@@ -66,7 +65,6 @@ __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
-
 
 LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
@@ -100,17 +98,17 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                  name,
                  thresholds=LANDING_ZONE_THRESHOLDS,
                  account_thresholds=ACCOUNT_THRESHOLDS,
-                 allow_list=None,
-                 deny_list=None):
+                 allow_account_ids=None,
+                 deny_account_ids=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.organizations = self._get_client()
         self.name = name
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
         account_ids = [account.id for account in self.accounts]
-        allow_list, deny_list = validate_allow_deny_account_ids(allow_list, deny_list)
-        self.allow_list = self._validate_landing_zone_account_ids(allow_list, account_ids)
-        self.deny_list = self._validate_landing_zone_account_ids(deny_list, account_ids)
+        allow_account_ids, deny_account_ids = validate_allow_deny_account_ids(allow_account_ids, deny_account_ids)
+        self.allow_account_ids = self._validate_landing_zone_account_ids(allow_account_ids, account_ids)
+        self.deny_account_ids = self._validate_landing_zone_account_ids(deny_account_ids, account_ids)
         self._accounts_to_be_labeled = None
 
     @staticmethod
@@ -188,7 +186,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             The list of accounts based on the allowed list.
 
         """
-        return [account for account in self.accounts if account.id in self.allow_list]
+        return [account for account in self.accounts if account.id in self.allow_account_ids]
 
     def get_not_denied_accounts(self):
         """Retrieves allowed accounts based on an deny list.
@@ -197,7 +195,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             The list of accounts not on the deny list.
 
         """
-        return [account for account in self.accounts if account.id not in self.deny_list]
+        return [account for account in self.accounts if account.id not in self.deny_account_ids]
 
     @property
     def accounts_to_be_labeled(self):
@@ -208,11 +206,11 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
 
         """
         if self._accounts_to_be_labeled is None:
-            if self.allow_list:
-                self._logger.debug(f'Working on allow list {self.allow_list}')
+            if self.allow_account_ids:
+                self._logger.debug(f'Working on allow list {self.allow_account_ids}')
                 self._accounts_to_be_labeled = self.get_allowed_accounts()
-            elif self.deny_list:
-                self._logger.debug(f'Working on deny list {self.deny_list}')
+            elif self.deny_account_ids:
+                self._logger.debug(f'Working on deny list {self.deny_account_ids}')
                 self._accounts_to_be_labeled = self.get_not_denied_accounts()
             else:
                 self._logger.debug('Working on all landing zone accounts')
@@ -554,9 +552,9 @@ class SecurityHub:
 
     frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
 
-    def __init__(self, region=None, allowed_regions=None, denied_regions=None):
+    def __init__(self, region=None, allow_regions=None, deny_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self.allowed_regions, self.denied_regions = validate_allow_deny_regions(allowed_regions, denied_regions)
+        self.allow_regions, self.deny_regions = validate_allow_deny_regions(allow_regions, deny_regions)
         self.sts = boto3.client('sts')
         self.ec2 = self._get_client(region)
         self._aws_regions = None
@@ -588,12 +586,12 @@ class SecurityHub:
                                  if not region.get('OptInStatus', '') == 'not-opted-in']
             self._logger.debug(f'Regions in EC2 that were opted in are : {self._aws_regions}')
 
-        if self.allowed_regions:
-            self._aws_regions = set(self._aws_regions).intersection(set(self.allowed_regions))
+        if self.allow_regions:
+            self._aws_regions = set(self._aws_regions).intersection(set(self.allow_regions))
             self._logger.debug(f'Working on allowed regions {self._aws_regions}')
-        elif self.denied_regions:
-            self._logger.debug(f'Excluding denied regions {self.denied_regions}')
-            self._aws_regions = set(self._aws_regions) - set(self.denied_regions)
+        elif self.deny_regions:
+            self._logger.debug(f'Excluding denied regions {self.deny_regions}')
+            self._aws_regions = set(self._aws_regions) - set(self.deny_regions)
             self._logger.debug(f'Working on non-denied regions {self._aws_regions}')
         else:
             self._logger.debug('Working on all regions')
@@ -646,13 +644,12 @@ class SecurityHub:
                 self._logger.warning(f'Check your access for Security Hub for region {region}.')
                 continue
         return list(findings)
-        # return findings
 
     #  pylint: disable=dangerous-default-value
     @staticmethod
     def calculate_query_filter(query_filter=DEFAULT_SECURITY_HUB_FILTER,
-                               allow_list=None,
-                               deny_list=None,
+                               allow_account_ids=None,
+                               deny_account_ids=None,
                                frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS):
         """Calculates a Security Hub compatible filter for retrieving findings.
 
@@ -661,8 +658,8 @@ class SecurityHub:
 
         Args:
             query_filter: The default filter if no filter is provided.
-            allow_list: The allow list of account ids to get the findings for.
-            deny_list: The deny list of account ids to filter out findings for.
+            allow_account_ids: The allow list of account ids to get the findings for.
+            deny_account_ids: The deny list of account ids to filter out findings for.
             frameworks: The default frameworks if no frameworks are provided.
 
 
@@ -672,10 +669,10 @@ class SecurityHub:
         """
         query_filter = deepcopy(query_filter)
         frameworks = SecurityHub.validate_frameworks(frameworks)
-        allow_list, deny_list = validate_allow_deny_account_ids(allow_list, deny_list)
-        if any([allow_list, deny_list]):
-            comparison = 'EQUALS' if allow_list else 'NOT_EQUALS'
-            iterator = allow_list if allow_list else deny_list
+        allow_account_ids, deny_account_ids = validate_allow_deny_account_ids(allow_account_ids, deny_account_ids)
+        if any([allow_account_ids, deny_account_ids]):
+            comparison = 'EQUALS' if allow_account_ids else 'NOT_EQUALS'
+            iterator = allow_account_ids if allow_account_ids else deny_account_ids
             aws_account_ids = [{'Comparison': comparison, 'Value': account} for account in iterator]
             query_filter.update({'AwsAccountId': aws_account_ids})
         # TODO extend the query filter with the frameworks

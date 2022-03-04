@@ -32,12 +32,13 @@ Import all parts from schemas here
    http://google.github.io/styleguide/pyguide.html
 """
 
-import re
 import logging
+import re
 
+from .awsenergylabelerlibexceptions import (InvalidAccountListProvided,
+                                            MutuallyExclusiveArguments,
+                                            InvalidRegionListProvided)
 from .configuration import SECURITY_HUB_ACTIVE_REGIONS
-from .awsenergylabelerlibexceptions import InvalidAccountListProvided, MutuallyExclusiveArguments, \
-    InvalidRegionListProvided
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -47,7 +48,6 @@ __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
-
 
 LOGGER_BASENAME = '''validations'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
@@ -96,35 +96,36 @@ def validate_account_ids(account_ids):
     if account_ids is None:
         return []
     if not isinstance(account_ids, (list, tuple, set, str)):
-        raise InvalidAccountListProvided(f'Only list, tuple, set or string of accounts is accepted input, '
+        raise InvalidAccountListProvided(f'Only list, tuple, set or string of accounts are accepted input, '
                                          f'received: {account_ids}')
     if isinstance(account_ids, str):
         account_ids = [account_ids] if is_valid_account_id(account_ids) else re.split('[^0-9]', account_ids)
-    account_ids = list({account_id for account_id in account_ids if account_id})
-    return account_ids
+    return list({account_id for account_id in account_ids if account_id})
 
 
-def validate_allow_deny_account_ids(allow_list=None, deny_list=None):
+def validate_allow_deny_account_ids(allow_account_ids=None, deny_account_ids=None):
     """Validates provided allow and deny account id lists.
 
     Not both arguments can contain values as they are logically mutually exclusive. The validations process also
     validates that the arguments contain valid account id values if provided.
 
     Args:
-        allow_list (str|iterable): A single or multiple account id to validate, mutually exclusive with the deny list
-        deny_list (str|iterable): A single or multiple account id to validate, mutually exclusive with the allow list
+        allow_account_ids (str|iterable): A single or multiple account id to validate,
+            mutually exclusive with the deny list
+        deny_account_ids (str|iterable): A single or multiple account id to validate,
+            mutually exclusive with the allow list
 
     Returns:
-        allow_list, deny_list: A tuple of list values with valid account ids
+        allow_account_ids, deny_account_ids: A tuple of list values with valid account ids
 
     Raises:
         MutuallyExclusiveArguments: If both arguments contain values.
         InvalidAccountListProvided: If any of the provided account ids is not a valid AWS account id.
 
     """
-    if all([allow_list, deny_list]):
+    if all([allow_account_ids, deny_account_ids]):
         raise MutuallyExclusiveArguments('allow_list and deny_list are mutually exclusive.')
-    return validate_account_ids(allow_list), validate_account_ids(deny_list)
+    return validate_account_ids(allow_account_ids), validate_account_ids(deny_account_ids)
 
 
 def is_valid_region(region):
@@ -182,24 +183,24 @@ def validate_regions(regions):
     return regions
 
 
-def validate_allow_deny_regions(allowed_regions=None, denied_regions=None):
+def validate_allow_deny_regions(allow_regions=None, deny_regions=None):
     """Validates provided allow and deny regions.
 
     Not both arguments can contain values as they are logically mutually exclusive. The validations process also
     validates that the arguments contain valid regions if provided.
 
     Args:
-        allowed_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the deny
-        denied_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the allow
+        allow_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the deny
+        deny_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the allow
 
     Returns:
-        allowed_regions, denied_regions: A tuple of list values with valid regions
+        allow_regions, deny_regions: A tuple of list values with valid regions
 
     Raises:
         MutuallyExclusiveArguments: If both arguments contain values.
         InvalidRegionListProvided: If any of the provided regions is not a valid Security Hub region.
 
     """
-    if all([allowed_regions, denied_regions]):
+    if all([allow_regions, deny_regions]):
         raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
-    return validate_regions(allowed_regions), validate_regions(denied_regions)
+    return validate_regions(allow_regions), validate_regions(deny_regions)
