@@ -94,3 +94,9 @@ History
 ------------------
 
 * Filtered out archived findings.
+
+
+0.4.5 (04-03-2022)
+------------------
+
+* No duplicates anymore, unique findings only.
