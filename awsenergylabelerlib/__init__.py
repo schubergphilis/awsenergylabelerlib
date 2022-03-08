@@ -42,6 +42,7 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             NoRegion,
                                             AccountsNotPartOfLandingZone,
                                             UnableToRetrieveSecurityHubRegions)
+from .validations import is_valid_region, is_valid_account_id
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -67,3 +68,6 @@ assert NoAccess
 assert NoRegion
 assert AccountsNotPartOfLandingZone
 assert UnableToRetrieveSecurityHubRegions
+
+assert is_valid_region
+assert is_valid_account_id
