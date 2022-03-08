@@ -56,7 +56,7 @@ from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             LANDING_ZONE_THRESHOLDS,
                             ACCOUNT_THRESHOLDS)
 from .labels import AccountEnergyLabel, AggregateAccountsEnergyLabel, LandingZoneEnergyLabel
-from .validations import validate_allow_denied_account_ids, validate_allow_deny_regions
+from .validations import validate_allowed_denied_account_ids, validate_allowed_denied_regions
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -88,8 +88,8 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
         account_ids = [account.id for account in self.accounts]
-        allowed_account_ids, denied_account_ids = validate_allow_denied_account_ids(allowed_account_ids,
-                                                                                    denied_account_ids)
+        allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
+                                                                                      denied_account_ids)
         self.allowed_account_ids = self._validate_landing_zone_account_ids(allowed_account_ids, account_ids)
         self.denied_account_ids = self._validate_landing_zone_account_ids(denied_account_ids, account_ids)
         self._accounts_to_be_labeled = None
@@ -541,9 +541,9 @@ class SecurityHub:
 
     frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
 
-    def __init__(self, region=None, allow_regions=None, deny_regions=None):
+    def __init__(self, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self.allow_regions, self.deny_regions = validate_allow_deny_regions(allow_regions, deny_regions)
+        self.allowed_regions, self.denied_regions = validate_allowed_denied_regions(allowed_regions, denied_regions)
         self.sts = boto3.client('sts')
         self.ec2 = self._get_client(region)
         self._aws_regions = None
@@ -575,12 +575,12 @@ class SecurityHub:
                                  if not region.get('OptInStatus', '') == 'not-opted-in']
             self._logger.debug(f'Regions in EC2 that were opted in are : {self._aws_regions}')
 
-        if self.allow_regions:
-            self._aws_regions = set(self._aws_regions).intersection(set(self.allow_regions))
+        if self.allowed_regions:
+            self._aws_regions = set(self._aws_regions).intersection(set(self.allowed_regions))
             self._logger.debug(f'Working on allowed regions {self._aws_regions}')
-        elif self.deny_regions:
-            self._logger.debug(f'Excluding denied regions {self.deny_regions}')
-            self._aws_regions = set(self._aws_regions) - set(self.deny_regions)
+        elif self.denied_regions:
+            self._logger.debug(f'Excluding denied regions {self.denied_regions}')
+            self._aws_regions = set(self._aws_regions) - set(self.denied_regions)
             self._logger.debug(f'Working on non-denied regions {self._aws_regions}')
         else:
             self._logger.debug('Working on all regions')
@@ -658,8 +658,8 @@ class SecurityHub:
         """
         query_filter = deepcopy(query_filter)
         frameworks = SecurityHub.validate_frameworks(frameworks)
-        allowed_account_ids, denied_account_ids = validate_allow_denied_account_ids(allowed_account_ids,
-                                                                                    denied_account_ids)
+        allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
+                                                                                      denied_account_ids)
         if any([allowed_account_ids, denied_account_ids]):
             comparison = 'EQUALS' if allowed_account_ids else 'NOT_EQUALS'
             iterator = allowed_account_ids if allowed_account_ids else denied_account_ids

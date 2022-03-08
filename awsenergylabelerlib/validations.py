@@ -103,7 +103,7 @@ def validate_account_ids(account_ids):
     return list({account_id for account_id in account_ids if account_id})
 
 
-def validate_allow_denied_account_ids(allowed_account_ids=None, denied_account_ids=None):
+def validate_allowed_denied_account_ids(allowed_account_ids=None, denied_account_ids=None):
     """Validates provided allow and deny account id lists.
 
     Not both arguments can contain values as they are logically mutually exclusive. The validations process also
@@ -183,24 +183,24 @@ def validate_regions(regions):
     return regions
 
 
-def validate_allow_deny_regions(allow_regions=None, deny_regions=None):
+def validate_allowed_denied_regions(allowed_regions=None, denied_regions=None):
     """Validates provided allow and deny regions.
 
     Not both arguments can contain values as they are logically mutually exclusive. The validations process also
     validates that the arguments contain valid regions if provided.
 
     Args:
-        allow_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the deny
-        deny_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the allow
+        allowed_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the deny
+        denied_regions (str|iterable): A single or multiple region to validate, mutually exclusive with the allow
 
     Returns:
-        allow_regions, deny_regions: A tuple of list values with valid regions
+        allowed_regions, denied_regions: A tuple of list values with valid regions
 
     Raises:
         MutuallyExclusiveArguments: If both arguments contain values.
         InvalidRegionListProvided: If any of the provided regions is not a valid Security Hub region.
 
     """
-    if all([allow_regions, deny_regions]):
+    if all([allowed_regions, denied_regions]):
         raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
-    return validate_regions(allow_regions), validate_regions(deny_regions)
+    return validate_regions(allowed_regions), validate_regions(denied_regions)

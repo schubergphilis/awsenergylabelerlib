@@ -72,8 +72,8 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                  frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
                  allowed_account_ids=None,
                  denied_account_ids=None,
-                 allow_regions=None,
-                 deny_regions=None):
+                 allowed_regions=None,
+                 denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.account_thresholds = account_thresholds_schema.validate(account_thresholds)
         self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
@@ -85,8 +85,8 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                                          allowed_account_ids,
                                          denied_account_ids)
         self._security_hub = SecurityHub(region=region,
-                                         allow_regions=allow_regions,
-                                         deny_regions=deny_regions)
+                                         allowed_regions=allowed_regions,
+                                         denied_regions=denied_regions)
         self._account_labels_counter = None
         self._query_filter = None
 
