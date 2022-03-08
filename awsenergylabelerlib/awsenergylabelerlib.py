@@ -70,8 +70,8 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                  landing_zone_thresholds=LANDING_ZONE_THRESHOLDS,
                  security_hub_filter=DEFAULT_SECURITY_HUB_FILTER,
                  frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
-                 allow_account_ids=None,
-                 deny_account_ids=None,
+                 allowed_account_ids=None,
+                 denied_account_ids=None,
                  allow_regions=None,
                  deny_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
@@ -82,8 +82,8 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
         self._landing_zone = LandingZone(landing_zone_name,
                                          self.landing_zone_thresholds,
                                          self.account_thresholds,
-                                         allow_account_ids,
-                                         deny_account_ids)
+                                         allowed_account_ids,
+                                         denied_account_ids)
         self._security_hub = SecurityHub(region=region,
                                          allow_regions=allow_regions,
                                          deny_regions=deny_regions)
@@ -100,8 +100,8 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
         """
         if self._query_filter is None:
             self._query_filter = SecurityHub.calculate_query_filter(self._security_hub_filter,
-                                                                    self._landing_zone.allow_account_ids,
-                                                                    self._landing_zone.deny_account_ids,
+                                                                    self._landing_zone.allowed_account_ids,
+                                                                    self._landing_zone.denied_account_ids,
                                                                     self._frameworks)
             self._logger.debug(f'Calculated query {self._query_filter} to execute on security hub.')
         return self._query_filter

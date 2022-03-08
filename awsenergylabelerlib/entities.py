@@ -55,7 +55,8 @@ from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             LANDING_ZONE_THRESHOLDS,
                             ACCOUNT_THRESHOLDS)
-from .validations import validate_allow_deny_account_ids, validate_allow_deny_regions
+from .labels import AccountEnergyLabel, AggregateAccountsEnergyLabel, LandingZoneEnergyLabel
+from .validations import validate_allow_denied_account_ids, validate_allow_deny_regions
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -71,25 +72,6 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-@dataclass
-class LandingZoneEnergyLabel:
-    """Models the landing zone energy label."""
-
-    label: str
-    coverage: str
-
-
-@dataclass
-class AccountEnergyLabel:
-    """Models the account energy label."""
-
-    label: str = "F"
-    number_of_critical_and_high: int = 9999
-    number_of_medium: int = 9999
-    number_of_low: int = 9999
-    max_days_open: int = 9999
-
-
 class LandingZone:  # pylint: disable=too-many-instance-attributes
     """Models the landing zone and retrieves accounts from it."""
 
@@ -98,17 +80,18 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                  name,
                  thresholds=LANDING_ZONE_THRESHOLDS,
                  account_thresholds=ACCOUNT_THRESHOLDS,
-                 allow_account_ids=None,
-                 deny_account_ids=None):
+                 allowed_account_ids=None,
+                 denied_account_ids=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.organizations = self._get_client()
         self.name = name
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
         account_ids = [account.id for account in self.accounts]
-        allow_account_ids, deny_account_ids = validate_allow_deny_account_ids(allow_account_ids, deny_account_ids)
-        self.allow_account_ids = self._validate_landing_zone_account_ids(allow_account_ids, account_ids)
-        self.deny_account_ids = self._validate_landing_zone_account_ids(deny_account_ids, account_ids)
+        allowed_account_ids, denied_account_ids = validate_allow_denied_account_ids(allowed_account_ids,
+                                                                                    denied_account_ids)
+        self.allowed_account_ids = self._validate_landing_zone_account_ids(allowed_account_ids, account_ids)
+        self.denied_account_ids = self._validate_landing_zone_account_ids(denied_account_ids, account_ids)
         self._accounts_to_be_labeled = None
 
     @staticmethod
@@ -186,7 +169,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             The list of accounts based on the allowed list.
 
         """
-        return [account for account in self.accounts if account.id in self.allow_account_ids]
+        return [account for account in self.accounts if account.id in self.allowed_account_ids]
 
     def get_not_denied_accounts(self):
         """Retrieves allowed accounts based on an deny list.
@@ -195,7 +178,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             The list of accounts not on the deny list.
 
         """
-        return [account for account in self.accounts if account.id not in self.deny_account_ids]
+        return [account for account in self.accounts if account.id not in self.denied_account_ids]
 
     @property
     def accounts_to_be_labeled(self):
@@ -206,11 +189,11 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
 
         """
         if self._accounts_to_be_labeled is None:
-            if self.allow_account_ids:
-                self._logger.debug(f'Working on allow list {self.allow_account_ids}')
+            if self.allowed_account_ids:
+                self._logger.debug(f'Working on allow list {self.allowed_account_ids}')
                 self._accounts_to_be_labeled = self.get_allowed_accounts()
-            elif self.deny_account_ids:
-                self._logger.debug(f'Working on deny list {self.deny_account_ids}')
+            elif self.denied_account_ids:
+                self._logger.debug(f'Working on deny list {self.denied_account_ids}')
                 self._accounts_to_be_labeled = self.get_not_denied_accounts()
             else:
                 self._logger.debug('Working on all landing zone accounts')
@@ -262,7 +245,10 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                                f'and sums of {account_sums}')
             if sum(account_sums) / number_of_accounts * 100 >= percentage:
                 self._logger.debug(f'Found a match with label {label}')
-                calculated_label = label
+                calculated_label = AggregateAccountsEnergyLabel(label,
+                                                                best_label=min(label_counter.keys()),
+                                                                worst_label=max(label_counter.keys()),
+                                                                accounts_measured=number_of_accounts)
                 break
         return calculated_label
 
@@ -276,9 +262,12 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             energy_label (LandingZoneEnergyLabel): The labeling object of the landing zone.
 
         """
-        label = self.get_energy_label_of_targeted_accounts(security_hub_findings)
+        aggregate_label = self.get_energy_label_of_targeted_accounts(security_hub_findings)
         coverage_percentage = len(self.accounts_to_be_labeled) / len(self.accounts) * 100
-        return LandingZoneEnergyLabel(label, f'{coverage_percentage:.2f}%')
+        return LandingZoneEnergyLabel(aggregate_label.label,
+                                      best_label=aggregate_label.best_label,
+                                      worst_label=aggregate_label.worst_label,
+                                      coverage=f'{coverage_percentage:.2f}%')
 
 
 @dataclass
@@ -648,8 +637,8 @@ class SecurityHub:
     #  pylint: disable=dangerous-default-value
     @staticmethod
     def calculate_query_filter(query_filter=DEFAULT_SECURITY_HUB_FILTER,
-                               allow_account_ids=None,
-                               deny_account_ids=None,
+                               allowed_account_ids=None,
+                               denied_account_ids=None,
                                frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS):
         """Calculates a Security Hub compatible filter for retrieving findings.
 
@@ -658,8 +647,8 @@ class SecurityHub:
 
         Args:
             query_filter: The default filter if no filter is provided.
-            allow_account_ids: The allow list of account ids to get the findings for.
-            deny_account_ids: The deny list of account ids to filter out findings for.
+            allowed_account_ids: The allow list of account ids to get the findings for.
+            denied_account_ids: The deny list of account ids to filter out findings for.
             frameworks: The default frameworks if no frameworks are provided.
 
 
@@ -669,10 +658,11 @@ class SecurityHub:
         """
         query_filter = deepcopy(query_filter)
         frameworks = SecurityHub.validate_frameworks(frameworks)
-        allow_account_ids, deny_account_ids = validate_allow_deny_account_ids(allow_account_ids, deny_account_ids)
-        if any([allow_account_ids, deny_account_ids]):
-            comparison = 'EQUALS' if allow_account_ids else 'NOT_EQUALS'
-            iterator = allow_account_ids if allow_account_ids else deny_account_ids
+        allowed_account_ids, denied_account_ids = validate_allow_denied_account_ids(allowed_account_ids,
+                                                                                    denied_account_ids)
+        if any([allowed_account_ids, denied_account_ids]):
+            comparison = 'EQUALS' if allowed_account_ids else 'NOT_EQUALS'
+            iterator = allowed_account_ids if allowed_account_ids else denied_account_ids
             aws_account_ids = [{'Comparison': comparison, 'Value': account} for account in iterator]
             query_filter.update({'AwsAccountId': aws_account_ids})
         # TODO extend the query filter with the frameworks

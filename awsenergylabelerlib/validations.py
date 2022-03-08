@@ -103,29 +103,29 @@ def validate_account_ids(account_ids):
     return list({account_id for account_id in account_ids if account_id})
 
 
-def validate_allow_deny_account_ids(allow_account_ids=None, deny_account_ids=None):
+def validate_allow_denied_account_ids(allowed_account_ids=None, denied_account_ids=None):
     """Validates provided allow and deny account id lists.
 
     Not both arguments can contain values as they are logically mutually exclusive. The validations process also
     validates that the arguments contain valid account id values if provided.
 
     Args:
-        allow_account_ids (str|iterable): A single or multiple account id to validate,
+        allowed_account_ids (str|iterable): A single or multiple account id to validate,
             mutually exclusive with the deny list
-        deny_account_ids (str|iterable): A single or multiple account id to validate,
+        denied_account_ids (str|iterable): A single or multiple account id to validate,
             mutually exclusive with the allow list
 
     Returns:
-        allow_account_ids, deny_account_ids: A tuple of list values with valid account ids
+        allowed_account_ids, denied_account_ids: A tuple of list values with valid account ids
 
     Raises:
         MutuallyExclusiveArguments: If both arguments contain values.
         InvalidAccountListProvided: If any of the provided account ids is not a valid AWS account id.
 
     """
-    if all([allow_account_ids, deny_account_ids]):
+    if all([allowed_account_ids, denied_account_ids]):
         raise MutuallyExclusiveArguments('allow_list and deny_list are mutually exclusive.')
-    return validate_account_ids(allow_account_ids), validate_account_ids(deny_account_ids)
+    return validate_account_ids(allowed_account_ids), validate_account_ids(denied_account_ids)
 
 
 def is_valid_region(region):
