@@ -35,7 +35,7 @@ Import all parts from entities here
 import logging
 import tempfile
 from collections import Counter
-from copy import deepcopy
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -58,8 +58,8 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
 from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             LANDING_ZONE_THRESHOLDS,
-                            ACCOUNT_THRESHOLDS)
-from .datamodels import DataFileFactory
+                            ACCOUNT_THRESHOLDS,
+                            FILE_EXPORT_TYPES)
 from .labels import AccountEnergyLabel, AggregateAccountsEnergyLabel, LandingZoneEnergyLabel
 from .validations import validate_allowed_denied_account_ids, validate_allowed_denied_regions, DestinationPath
 
@@ -658,7 +658,7 @@ class SecurityHub:
 
         """
         query_filter = deepcopy(query_filter)
-        frameworks = SecurityHub.validate_frameworks(frameworks)
+        _ = SecurityHub.validate_frameworks(frameworks)
         allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
                                                                                       denied_account_ids)
         if any([allowed_account_ids, denied_account_ids]):
@@ -666,15 +666,18 @@ class SecurityHub:
             iterator = allowed_account_ids if allowed_account_ids else denied_account_ids
             aws_account_ids = [{'Comparison': comparison, 'Value': account} for account in iterator]
             query_filter.update({'AwsAccountId': aws_account_ids})
-        # TODO extend the query filter with the frameworks
         return query_filter
 
 
 class DataExporter:  # pylint: disable=too-few-public-methods
     """Export AWS security data."""
 
-    def __init__(self, energy_labeler, export_types):
-        self.energy_labeler = energy_labeler
+    #  pylint: disable=too-many-arguments
+    def __init__(self, export_types, name, energy_label, security_hub_findings, labeled_accounts):
+        self.name = name
+        self.energy_label = energy_label
+        self.security_hub_findings = security_hub_findings
+        self.labeled_accounts = labeled_accounts
         self.export_types = export_types
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
@@ -684,7 +687,11 @@ class DataExporter:  # pylint: disable=too-few-public-methods
         if not destination.is_valid():
             raise InvalidPath(path)
         for export_type in self.export_types:
-            data_file = DataFileFactory(export_type, self.energy_labeler)
+            data_file = DataFileFactory(export_type,
+                                        self.name,
+                                        self.energy_label,
+                                        self.security_hub_findings,
+                                        self.labeled_accounts)
             if destination.type == 's3':
                 self._export_to_s3(path, data_file.filename, data_file.json)  # pylint: disable=no-member
             else:
@@ -714,3 +721,21 @@ class DataExporter:  # pylint: disable=too-few-public-methods
             s3.upload_file(temp_file.name, bucket_name, dst_filename)
             temp_file.close()
         self._logger.info(f'File {filename} copied to {s3_url}')
+
+
+class DataFileFactory:  # pylint: disable=too-few-public-methods
+    """Data export factory to handle the different data types returned."""
+
+    #  pylint: disable=too-many-arguments, unused-argument
+    def __new__(cls, export_type, name, energy_label, security_hub_findings, labeled_accounts):
+        data_file_configuration = next((datafile for datafile in FILE_EXPORT_TYPES
+                                        if datafile.get('type') == export_type.lower()), None)
+
+        if not data_file_configuration:
+            LOGGER.error('Unknown data type %s', export_type)
+            return None
+        obj = data_file_configuration.get('object_type')
+        arguments = {'filename': data_file_configuration.get('filename')}
+        arguments.update({key: value for key, value in copy(locals()).items()
+                          if key in data_file_configuration.get('required_arguments')})
+        return obj(**arguments)

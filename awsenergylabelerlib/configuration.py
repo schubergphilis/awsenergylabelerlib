@@ -38,6 +38,13 @@ import requests
 
 from .awsenergylabelerlibexceptions import UnableToRetrieveSecurityHubRegions
 
+from .datamodels import (LandingZoneEnergyLabelingData,
+                         SecurityHubFindingsData,
+                         SecurityHubFindingsResourcesData,
+                         SecurityHubFindingsTypesData,
+                         LabeledAccountsData)
+
+
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
 __date__ = '''09-11-2021'''
@@ -46,6 +53,7 @@ __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
+
 
 LOGGER_BASENAME = '''configuration'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
@@ -118,3 +126,32 @@ def get_available_regions():
 
 
 SECURITY_HUB_ACTIVE_REGIONS = get_available_regions()
+
+FILE_EXPORT_TYPES = [
+    {'type': 'landing_zone_energy_label',
+     'filename': 'landing-zone-energy-label.json',
+     'object_type': LandingZoneEnergyLabelingData,
+     'required_arguments': ['name', 'energy_label']},
+    {'type': 'findings',
+     'filename': 'security-hub-findings.json',
+     'object_type': SecurityHubFindingsData,
+     'required_arguments': ['security_hub_findings']},
+    {'type': 'findings_resources',
+     'filename': 'security-hub-findings.json',
+     'object_type': SecurityHubFindingsResourcesData,
+     'required_arguments': ['security_hub_findings']},
+    {'type': 'findings_types',
+     'filename': 'security-hub-findings-types.json',
+     'object_type': SecurityHubFindingsTypesData,
+     'required_arguments': ['security_hub_findings']},
+    {'type': 'labeled_accounts',
+     'filename': 'labeled-accounts.json',
+     'object_type': LabeledAccountsData,
+     'required_arguments': ['labeled_accounts']},
+]
+
+METRIC_EXPORT_TYPES = ['energy_label', 'labeled_accounts']
+
+DATA_EXPORT_TYPES = ['findings', 'findings_resources', 'findings_types']
+
+ALL_EXPORT_TYPES = METRIC_EXPORT_TYPES + DATA_EXPORT_TYPES

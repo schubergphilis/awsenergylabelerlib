@@ -34,7 +34,6 @@ Main code for datamodels.
 import logging
 import json
 
-
 __author__ = '''Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'''
 __docformat__ = '''google'''
 __date__ = '''08-04-2022'''
@@ -49,24 +48,6 @@ __status__ = '''Development'''  # "Prototype", "Development", "Production".
 LOGGER_BASENAME = '''datamodels'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
-
-
-class DataFileFactory:  # pylint: disable=too-few-public-methods
-    """Data export factory to handle the different data types returned."""
-
-    def __new__(cls, export_type, labeler):
-        export_map = {
-            'energy_label': LandingZoneEnergyLabelingData('energylabel-of-landingzone.json', labeler),
-            'findings': SecurityHubFindingsData('securityhub-findings.json', labeler),
-            'findings_resources': SecurityHubFindingsResourcesData('securityhub-findings-resources.json', labeler),
-            'findings_types': SecurityHubFindingsTypesData('securityhub-findings-types.json', labeler),
-            'labeled_accounts': LabeledAccountsData('labeled-accounts.json', labeler)
-        }
-        try:
-            return export_map.get(export_type)
-        except KeyError:
-            LOGGER.error('Unknown data type %s', export_type)
-            return None
 
 
 class LandingZoneEnergyLabelingData:  # pylint: disable=too-few-public-methods

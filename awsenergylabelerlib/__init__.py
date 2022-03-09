@@ -42,6 +42,8 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             NoRegion,
                                             AccountsNotPartOfLandingZone,
                                             UnableToRetrieveSecurityHubRegions)
+from .configuration import ALL_EXPORT_TYPES, DATA_EXPORT_TYPES, METRIC_EXPORT_TYPES
+from .entities import DataExporter
 from .validations import (is_valid_account_id,
                           are_valid_account_ids,
                           validate_account_ids,
@@ -51,6 +53,7 @@ from .validations import (is_valid_account_id,
                           validate_regions,
                           validate_allowed_denied_regions,
                           DestinationPath)
+
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -76,6 +79,12 @@ assert NoAccess
 assert NoRegion
 assert AccountsNotPartOfLandingZone
 assert UnableToRetrieveSecurityHubRegions
+
+assert ALL_EXPORT_TYPES
+assert DATA_EXPORT_TYPES
+assert METRIC_EXPORT_TYPES
+
+assert DataExporter
 
 assert is_valid_account_id
 assert are_valid_account_ids
