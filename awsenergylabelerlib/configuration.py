@@ -32,18 +32,16 @@ Import all parts from configuration here
    http://google.github.io/styleguide/pyguide.html
 """
 
+import json
 import logging
-
-import requests
+import urllib
 
 from .awsenergylabelerlibexceptions import UnableToRetrieveSecurityHubRegions
-
 from .datamodels import (LandingZoneEnergyLabelingData,
                          SecurityHubFindingsData,
                          SecurityHubFindingsResourcesData,
                          SecurityHubFindingsTypesData,
                          LabeledAccountsData)
-
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -53,7 +51,6 @@ __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
-
 
 LOGGER_BASENAME = '''configuration'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
@@ -116,12 +113,13 @@ def get_available_regions():
 
     """
     url = 'https://api.regional-table.region-services.aws.a2z.com/index.json'
-    response = requests.get(url)
-    if not response.ok:
-        raise UnableToRetrieveSecurityHubRegions(f'Failed to retrieve applicable AWS regions, response was '
-                                                 f':{response.text}')
+    try:
+        with urllib.request.urlopen(url) as response:
+            response_json = json.loads(response.read())
+    except (urllib.error.URLError, ValueError):
+        raise UnableToRetrieveSecurityHubRegions('Failed to retrieve applicable AWS regions')
     return [entry.get('id', '').split(':')[1]
-            for entry in response.json().get('prices')
+            for entry in response_json.get('prices')
             if entry.get('id').startswith('securityhub')]
 
 
