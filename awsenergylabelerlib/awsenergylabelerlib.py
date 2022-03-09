@@ -107,10 +107,20 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
         return self._query_filter
 
     @property
+    def landing_zone(self):
+        """Landing zone."""
+        return self._landing_zone
+
+    @property
+    def security_hub(self):
+        """Security Hub."""
+        return self._security_hub
+
+    @property
     @cached(cache=TTLCache(maxsize=150000, ttl=120))
     def security_hub_findings(self):
         """Security hub findings."""
-        return self._security_hub.get_findings(self._security_hub_query_filter)
+        return self.security_hub.get_findings(self._security_hub_query_filter)
 
     @property
     def landing_zone_energy_label(self):
@@ -122,3 +132,8 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
     def labeled_accounts_energy_label(self):
         """Energy label of the labeled accounts."""
         return self._landing_zone.get_energy_label_of_targeted_accounts(self.security_hub_findings)
+
+    @property
+    def landing_zone_labeled_accounts(self):
+        """The landing zone labeled account objects."""
+        return self._landing_zone.get_labeled_targeted_accounts(self.security_hub_findings)

@@ -205,7 +205,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                 self._accounts_to_be_labeled = self.accounts
         return self._accounts_to_be_labeled
 
-    def label_targeted_accounts(self, security_hub_findings):
+    def get_labeled_targeted_accounts(self, security_hub_findings):
         """Labels the accounts based on the allow and deny list provided.
 
         Args:
@@ -234,7 +234,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             energy_label (str): The energy label of the targeted accounts.
 
         """
-        labeled_accounts = self.label_targeted_accounts(security_hub_findings)
+        labeled_accounts = self.get_labeled_targeted_accounts(security_hub_findings)
         label_counter = Counter([account.energy_label.label for account in labeled_accounts])
         number_of_accounts = len(labeled_accounts)
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')

@@ -150,7 +150,7 @@ FILE_EXPORT_TYPES = [
      'required_arguments': ['labeled_accounts']},
 ]
 
-METRIC_EXPORT_TYPES = ['energy_label', 'labeled_accounts']
+METRIC_EXPORT_TYPES = ['landing_zone_energy_label', 'labeled_accounts']
 
 DATA_EXPORT_TYPES = ['findings', 'findings_resources', 'findings_types']
 
