@@ -48,6 +48,7 @@ import pandas as pd
 from botocore.config import Config
 from cachetools import cached, TTLCache
 from opnieuw import retry
+from pandas.core.frame import DataFrame
 
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
@@ -287,17 +288,19 @@ class AwsAccount:
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
-    def calculate_energy_label(self, findings_measurements_frame):
+    def calculate_energy_label(self, findings):
         """Calculates the energy label for the account.
 
         Args:
-            findings_measurements_frame: Dataframe with the measurements on findings from security hub.
+            findings: Either a list of security hub findings or a dataframe of security hub findings.
 
         Returns:
             The energy label of the account based on the provided configuration.
 
         """
-        df = findings_measurements_frame  # pylint: disable=invalid-name
+        if not issubclass(DataFrame, type(findings)):
+            findings = pd.DataFrame([finding.measurement_data for finding in findings])
+        df = findings  # pylint: disable=invalid-name
         try:
             open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
             number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
