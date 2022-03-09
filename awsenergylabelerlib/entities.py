@@ -33,10 +33,13 @@ Import all parts from entities here
 """
 
 import logging
+import tempfile
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse, urljoin
 
 import boto3
 import botocore.errorfactory
@@ -50,13 +53,15 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             NoAccess,
                                             NoRegion,
-                                            AccountsNotPartOfLandingZone)
+                                            AccountsNotPartOfLandingZone,
+                                            InvalidPath)
 from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             LANDING_ZONE_THRESHOLDS,
                             ACCOUNT_THRESHOLDS)
+from .datamodels import DataFileFactory
 from .labels import AccountEnergyLabel, AggregateAccountsEnergyLabel, LandingZoneEnergyLabel
-from .validations import validate_allowed_denied_account_ids, validate_allowed_denied_regions
+from .validations import validate_allowed_denied_account_ids, validate_allowed_denied_regions, DestinationPath
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -271,17 +276,13 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass
-class AwsAccount:  # pylint: disable=too-many-instance-attributes
+class AwsAccount:
     """Models the aws account that can label itself."""
 
     id: str  # pylint: disable=invalid-name
     name: str
     account_thresholds: list
     energy_label: AccountEnergyLabel = AccountEnergyLabel()
-    number_of_critical_high_findings: int = 0
-    number_of_medium_findings: int = 0
-    number_of_low_findings: int = 0
-    max_days_open: int = 0
 
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
@@ -301,33 +302,33 @@ class AwsAccount:  # pylint: disable=too-many-instance-attributes
             open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
             number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
             number_of_high_findings = open_findings[open_findings['Severity'] == 'HIGH'].shape[0]
-            self.number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
-            self.number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
-            self.number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
+            number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
+            number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
+            number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
             open_findings_low_or_higher = open_findings[(open_findings['Severity'] == 'LOW') |
                                                         (open_findings['Severity'] == 'MEDIUM') |
                                                         (open_findings['Severity'] == 'HIGH') |
                                                         (open_findings['Severity'] == 'CRITICAL')]
-            self.max_days_open = max(open_findings_low_or_higher['Days Open']) \
+            max_days_open = max(open_findings_low_or_higher['Days Open']) \
                 if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
 
             self._logger.debug(f'Calculating for account {self.id} '
                                f'with number of critical+high findings '
-                               f'{self.number_of_critical_high_findings}, '
-                               f'number of medium findings {self.number_of_medium_findings}, '
-                               f'number of low findings {self.number_of_low_findings}, '
+                               f'{number_of_critical_high_findings}, '
+                               f'number of medium findings {number_of_medium_findings}, '
+                               f'number of low findings {number_of_low_findings}, '
                                f'and findings have been open for over '
-                               f'{self.max_days_open} days')
+                               f'{max_days_open} days')
             for threshold in self.account_thresholds:
-                if all([self.number_of_critical_high_findings <= threshold['critical_high'],
-                        self.number_of_medium_findings <= threshold['medium'],
-                        self.number_of_low_findings <= threshold['low'],
-                        self.max_days_open < threshold['days_open_less_than']]):
+                if all([number_of_critical_high_findings <= threshold['critical_high'],
+                        number_of_medium_findings <= threshold['medium'],
+                        number_of_low_findings <= threshold['low'],
+                        max_days_open < threshold['days_open_less_than']]):
                     self.energy_label = AccountEnergyLabel(threshold['label'],
-                                                           self.number_of_critical_high_findings,
-                                                           self.number_of_medium_findings,
-                                                           self.number_of_low_findings,
-                                                           self.max_days_open)
+                                                           number_of_critical_high_findings,
+                                                           number_of_medium_findings,
+                                                           number_of_low_findings,
+                                                           max_days_open)
                     self._logger.debug(f'Energy Label for account {self.id} '
                                        f'has been calculated: {self.energy_label.label}')
                     break
@@ -667,3 +668,49 @@ class SecurityHub:
             query_filter.update({'AwsAccountId': aws_account_ids})
         # TODO extend the query filter with the frameworks
         return query_filter
+
+
+class DataExporter:  # pylint: disable=too-few-public-methods
+    """Export AWS security data."""
+
+    def __init__(self, energy_labeler, export_types):
+        self.energy_labeler = energy_labeler
+        self.export_types = export_types
+        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+
+    def export(self, path):
+        """Exports the data to the provided path."""
+        destination = DestinationPath(path)
+        if not destination.is_valid():
+            raise InvalidPath(path)
+        for export_type in self.export_types:
+            data_file = DataFileFactory(export_type, self.energy_labeler)
+            if destination.type == 's3':
+                self._export_to_s3(path, data_file.filename, data_file.json)  # pylint: disable=no-member
+            else:
+                self._export_to_fs(path, data_file.filename, data_file.json)  # pylint: disable=no-member
+
+    def _export_to_fs(self, directory, filename, data):
+        """Exports as json to local filesystem."""
+        path = Path(directory)
+        try:
+            path.mkdir()
+        except FileExistsError:
+            self._logger.debug(f'Directory {directory} already exists.')
+        with open(path.joinpath(filename), 'w') as jsonfile:
+            jsonfile.write(data)
+        self._logger.info(f'File {filename} copied to {directory}')
+
+    def _export_to_s3(self, s3_url, filename, data):
+        """Exports as json to S3 object storage."""
+        s3 = boto3.client('s3')  # pylint: disable=invalid-name
+        parsed_url = urlparse(s3_url)
+        bucket_name = parsed_url.netloc
+        dst_path = parsed_url.path
+        with tempfile.NamedTemporaryFile() as temp_file:
+            temp_file.write(data.encode('utf-8'))
+            temp_file.flush()
+            dst_filename = urljoin(dst_path, filename)
+            s3.upload_file(temp_file.name, bucket_name, dst_filename)
+            temp_file.close()
+        self._logger.info(f'File {filename} copied to {s3_url}')

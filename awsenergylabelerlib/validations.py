@@ -34,10 +34,11 @@ Import all parts from schemas here
 
 import logging
 import re
+from urllib.parse import urlparse
 
 from .awsenergylabelerlibexceptions import (InvalidAccountListProvided,
                                             MutuallyExclusiveArguments,
-                                            InvalidRegionListProvided)
+                                            InvalidRegionListProvided, InvalidPath)
 from .configuration import SECURITY_HUB_ACTIVE_REGIONS
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
@@ -204,3 +205,28 @@ def validate_allowed_denied_regions(allowed_regions=None, denied_regions=None):
     if all([allowed_regions, denied_regions]):
         raise MutuallyExclusiveArguments('allowed_regions and denied_regions are mutually exclusive.')
     return validate_regions(allowed_regions), validate_regions(denied_regions)
+
+
+class DestinationPath:
+    """Models a destination path and identifies if it is valid and it's type."""
+
+    def __init__(self, location):
+        self.location = location
+        self._parsed_url = urlparse(location)
+        self._s3_conditions = [self._parsed_url.scheme == "s3", len(self._parsed_url.netloc) >= 1]
+        self._local_conditions = [self._parsed_url.scheme == "",
+                                  self._parsed_url.netloc == "",
+                                  len(self._parsed_url.path) >= 1]
+
+    def is_valid(self):
+        """Is the path valid."""
+        return all(self._s3_conditions) or all(self._local_conditions)
+
+    @property
+    def type(self):
+        """The type of the path."""
+        if all(self._s3_conditions):
+            return 's3'
+        if all(self._local_conditions):
+            return 'local'
+        raise InvalidPath(self.location)

@@ -49,7 +49,8 @@ from .validations import (is_valid_account_id,
                           is_valid_region,
                           get_invalid_regions,
                           validate_regions,
-                          validate_allowed_denied_regions)
+                          validate_allowed_denied_regions,
+                          DestinationPath)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -84,3 +85,4 @@ assert is_valid_region
 assert get_invalid_regions
 assert validate_regions
 assert validate_allowed_denied_regions
+assert DestinationPath

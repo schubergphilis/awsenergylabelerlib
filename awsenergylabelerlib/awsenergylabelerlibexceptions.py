@@ -76,3 +76,7 @@ class AccountsNotPartOfLandingZone(Exception):
 
 class UnableToRetrieveSecurityHubRegions(Exception):
     """Could not retrieve the regions security hub is active in."""
+
+
+class InvalidPath(Exception):
+    """The path provided is not valid."""

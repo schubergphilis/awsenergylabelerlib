@@ -77,7 +77,7 @@ class AccountEnergyLabel:
     """Models the account energy label."""
 
     label: str = "F"
-    number_of_critical_and_high: int = 9999
-    number_of_medium: int = 9999
-    number_of_low: int = 9999
+    number_of_critical_high_findings: int = 9999
+    number_of_medium_findings: int = 9999
+    number_of_low_findings: int = 9999
     max_days_open: int = 9999
