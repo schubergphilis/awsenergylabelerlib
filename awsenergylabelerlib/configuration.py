@@ -34,7 +34,8 @@ Import all parts from configuration here
 
 import json
 import logging
-import urllib
+import urllib.request
+import urllib.error
 
 from .awsenergylabelerlibexceptions import UnableToRetrieveSecurityHubRegions
 from .datamodels import (LandingZoneEnergyLabelingData,
