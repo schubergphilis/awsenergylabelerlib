@@ -133,7 +133,7 @@ class SecurityHubFindingsTypesData:  # pylint: disable=too-few-public-methods
                           indent=2, default=str)
 
 
-class LabeledAccountData:  # pylint: disable=too-few-public-methods
+class LabeledAccountData:
     """Models the data for energy labeling to export."""
 
     def __init__(self, filename, labeled_accounts):
@@ -142,9 +142,11 @@ class LabeledAccountData:  # pylint: disable=too-few-public-methods
 
     @property
     def data(self):
+        """Data of an account to export."""
         return {'Account ID': self._labeled_account.id,
                 'Account Name': self._labeled_account.name,
-                'Number of critical & high findings': self._labeled_account.energy_label.number_of_critical_high_findings,
+                'Number of critical & high findings':
+                    self._labeled_account.energy_label.number_of_critical_high_findings,
                 'Number of medium findings': self._labeled_account.energy_label.number_of_medium_findings,
                 'Number of low findings': self._labeled_account.energy_label.number_of_low_findings,
                 'Number of maximum days open': self._labeled_account.energy_label.max_days_open,
@@ -153,7 +155,7 @@ class LabeledAccountData:  # pylint: disable=too-few-public-methods
     @property
     def json(self):
         """Data to json."""
-        return json.dumps([self.data], indent=2, default=str)
+        return json.dumps(self.data, indent=2, default=str)
 
 
 class LabeledAccountsData:  # pylint: disable=too-few-public-methods
