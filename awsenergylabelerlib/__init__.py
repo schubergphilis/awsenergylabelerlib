@@ -42,9 +42,11 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             NoRegion,
                                             AccountsNotPartOfLandingZone,
                                             UnableToRetrieveSecurityHubRegions)
-from .configuration import (ALL_EXPORT_TYPES,
+from .configuration import (ALL_LANDING_ZONE_EXPORT_TYPES,
+                            ALL_ACCOUNT_EXPORT_TYPES,
                             DATA_EXPORT_TYPES,
-                            METRIC_EXPORT_TYPES,
+                            ACCOUNT_METRIC_EXPORT_TYPES,
+                            LANDING_ZONE_METRIC_EXPORT_TYPES,
                             SECURITY_HUB_ACTIVE_REGIONS)
 from .entities import DataExporter
 from .validations import (is_valid_account_id,
@@ -83,9 +85,11 @@ assert NoRegion
 assert AccountsNotPartOfLandingZone
 assert UnableToRetrieveSecurityHubRegions
 
-assert ALL_EXPORT_TYPES
+assert ALL_LANDING_ZONE_EXPORT_TYPES
+assert ACCOUNT_METRIC_EXPORT_TYPES
 assert DATA_EXPORT_TYPES
-assert METRIC_EXPORT_TYPES
+assert LANDING_ZONE_METRIC_EXPORT_TYPES
+assert ACCOUNT_METRIC_EXPORT_TYPES
 assert SECURITY_HUB_ACTIVE_REGIONS
 
 assert DataExporter

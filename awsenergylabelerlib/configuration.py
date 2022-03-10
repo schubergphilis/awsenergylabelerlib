@@ -42,7 +42,8 @@ from .datamodels import (LandingZoneEnergyLabelingData,
                          SecurityHubFindingsData,
                          SecurityHubFindingsResourcesData,
                          SecurityHubFindingsTypesData,
-                         LabeledAccountsData)
+                         LabeledAccountsData,
+                         LabeledAccountData)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -106,7 +107,7 @@ DEFAULT_SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
 DEFAULT_SECURITY_HUB_FRAMEWORKS = {'cis', 'aws-foundational-security-best-practices'}
 
 
-def get_available_regions():
+def get_available_security_hub_regions():
     """The regions that security hub can be active in.
 
     Returns:
@@ -124,7 +125,11 @@ def get_available_regions():
             if entry.get('id').startswith('securityhub')]
 
 
-SECURITY_HUB_ACTIVE_REGIONS = get_available_regions()
+SECURITY_HUB_ACTIVE_REGIONS = ['ap-east-1', 'ap-northeast-2', 'ap-southeast-1', 'ap-southeast-2', 'ca-central-1',
+                               'eu-north-1', 'eu-west-2', 'us-east-2', 'us-gov-west-1', 'us-west-2', 'af-south-1',
+                               'ap-northeast-3', 'cn-northwest-1', 'eu-south-1', 'eu-west-1', 'eu-west-3', 'me-south-1',
+                               'sa-east-1', 'us-east-1', 'us-west-1', 'ap-northeast-1', 'ap-south-1', 'cn-north-1',
+                               'eu-central-1', 'us-gov-east-1']
 
 FILE_EXPORT_TYPES = [
     {'type': 'landing_zone_energy_label',
@@ -147,10 +152,17 @@ FILE_EXPORT_TYPES = [
      'filename': 'labeled-accounts.json',
      'object_type': LabeledAccountsData,
      'required_arguments': ['labeled_accounts']},
+    {'type': 'account_energy_label',
+     'filename': 'account-energy-label.json',
+     'object_type': LabeledAccountData,
+     'required_arguments': ['labeled_accounts']},
 ]
 
-METRIC_EXPORT_TYPES = ['landing_zone_energy_label', 'labeled_accounts']
+LANDING_ZONE_METRIC_EXPORT_TYPES = ['landing_zone_energy_label', 'labeled_accounts']
+
+ACCOUNT_METRIC_EXPORT_TYPES = ['account_energy_label']
 
 DATA_EXPORT_TYPES = ['findings', 'findings_resources', 'findings_types']
 
-ALL_EXPORT_TYPES = METRIC_EXPORT_TYPES + DATA_EXPORT_TYPES
+ALL_LANDING_ZONE_EXPORT_TYPES = LANDING_ZONE_METRIC_EXPORT_TYPES + DATA_EXPORT_TYPES
+ALL_ACCOUNT_EXPORT_TYPES = ACCOUNT_METRIC_EXPORT_TYPES + DATA_EXPORT_TYPES
