@@ -47,7 +47,11 @@ from .configuration import (ALL_LANDING_ZONE_EXPORT_TYPES,
                             DATA_EXPORT_TYPES,
                             ACCOUNT_METRIC_EXPORT_TYPES,
                             LANDING_ZONE_METRIC_EXPORT_TYPES,
-                            SECURITY_HUB_ACTIVE_REGIONS)
+                            SECURITY_HUB_ACTIVE_REGIONS,
+                            ACCOUNT_THRESHOLDS,
+                            LANDING_ZONE_THRESHOLDS,
+                            DEFAULT_SECURITY_HUB_FILTER,
+                            DEFAULT_SECURITY_HUB_FRAMEWORKS)
 from .entities import DataExporter
 from .validations import (is_valid_account_id,
                           are_valid_account_ids,
@@ -91,6 +95,10 @@ assert DATA_EXPORT_TYPES
 assert LANDING_ZONE_METRIC_EXPORT_TYPES
 assert ACCOUNT_METRIC_EXPORT_TYPES
 assert SECURITY_HUB_ACTIVE_REGIONS
+assert ACCOUNT_THRESHOLDS
+assert LANDING_ZONE_THRESHOLDS
+assert DEFAULT_SECURITY_HUB_FILTER
+assert DEFAULT_SECURITY_HUB_FRAMEWORKS
 
 assert DataExporter
 
