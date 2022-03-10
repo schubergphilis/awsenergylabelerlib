@@ -52,7 +52,7 @@ from .configuration import (ALL_LANDING_ZONE_EXPORT_TYPES,
                             LANDING_ZONE_THRESHOLDS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             DEFAULT_SECURITY_HUB_FRAMEWORKS)
-from .entities import DataExporter
+from .entities import DataExporter, AwsAccount
 from .validations import (is_valid_account_id,
                           are_valid_account_ids,
                           validate_account_ids,
@@ -101,6 +101,7 @@ assert DEFAULT_SECURITY_HUB_FILTER
 assert DEFAULT_SECURITY_HUB_FRAMEWORKS
 
 assert DataExporter
+assert AwsAccount
 
 assert is_valid_account_id
 assert are_valid_account_ids
