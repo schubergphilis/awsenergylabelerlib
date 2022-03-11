@@ -36,7 +36,8 @@ Tests for `awsenergylabelerlib` module.
 import unittest
 from awsenergylabelerlib import (is_valid_account_id,
                                  are_valid_account_ids,
-                                 validate_account_ids)
+                                 validate_account_ids,
+                                 InvalidAccountListProvided)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -73,5 +74,20 @@ class TestValidations(unittest.TestCase):
 
     def test_account_ids_validation(self):
         self.assertEqual([], validate_account_ids(None))
-        # self.assertTrue(['123456789123', '223456789123'] == validate_account_ids(['123456789123', '223456789123']))
-
+        self.assertTrue(['123456789123', '223456789123'] == validate_account_ids(['123456789123', '223456789123']))
+        self.assertTrue(['123456789123', '223456789123'] == validate_account_ids(('123456789123', '223456789123')))
+        self.assertTrue(['123456789123', '223456789123'] == validate_account_ids({'123456789123', '223456789123'}))
+        self.assertTrue(['223456789123'] == validate_account_ids({'', '223456789123'}))
+        self.assertTrue(['123456789123', '223456789123'] == validate_account_ids('123456789123,223456789123'))
+        self.assertTrue(['123456789123', '223456789123'] == validate_account_ids('123456789123-223456789123'))
+        self.assertTrue(['123456789123', '223456789123'] == validate_account_ids('123456789123|223456789123'))
+        self.assertTrue(['123456789123', '223456789123'] == validate_account_ids('123456789123 223456789123'))
+        self.assertTrue(['123456789123', '223456789123'] == validate_account_ids('123456789123#223456789123'))
+        with self.assertRaises(InvalidAccountListProvided):
+            validate_account_ids({'a': 3})
+        with self.assertRaises(InvalidAccountListProvided):
+            validate_account_ids(['1234567891', '223456789123'])
+        with self.assertRaises(InvalidAccountListProvided):
+            validate_account_ids(['12345678912', '2234567891232'])
+        with self.assertRaises(InvalidAccountListProvided):
+            validate_account_ids(['1234567891a2', '223456789123'])

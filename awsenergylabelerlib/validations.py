@@ -105,7 +105,10 @@ def validate_account_ids(account_ids):
                                          f'received: {account_ids}')
     if isinstance(account_ids, str):
         account_ids = [account_ids] if is_valid_account_id(account_ids) else re.split('[^0-9]', account_ids)
-    return list({account_id for account_id in account_ids if account_id})
+    account_ids = sorted(list({account_id for account_id in account_ids if account_id}))
+    if not are_valid_account_ids(account_ids):
+        raise InvalidAccountListProvided(f'The list provided contains invalid account ids: {account_ids}')
+    return account_ids
 
 
 def validate_allowed_denied_account_ids(allowed_account_ids=None, denied_account_ids=None):
