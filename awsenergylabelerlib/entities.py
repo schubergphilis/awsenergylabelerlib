@@ -284,9 +284,23 @@ class AwsAccount:
     name: str
     account_thresholds: list
     energy_label: AccountEnergyLabel = AccountEnergyLabel()
+    _alias: str = None
 
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+
+    @property
+    def alias(self):
+        """Alias."""
+        if self._alias is None:
+            self._alias = ''
+            try:
+                self._alias = boto3.client('iam').list_account_aliases()['AccountAliases'][0]
+            except IndexError:
+                LOGGER.debug(f'Alias for account {self.id} is not set.')
+            except botocore.exceptions.ClientError as msg:
+                LOGGER.error(f'Alias for account {self.id} could not be retrieved with message {msg}.')
+        return self._alias
 
     def calculate_energy_label(self, findings):
         """Calculates the energy label for the account.
@@ -607,6 +621,17 @@ class SecurityHub:
             return frameworks
         raise InvalidFrameworks(frameworks)
 
+    def _get_aggregating_region(self):
+        aggregating_region = None
+        client = boto3.client('securityhub')
+        try:
+            data = client.list_finding_aggregators()
+            aggregating_region = data.get('FindingAggregators')[0].get('FindingAggregatorArn').split(':')[3]
+            self._logger.info(f'Found aggregating region {aggregating_region}')
+        except (IndexError, botocore.exceptions.ClientError):
+            self._logger.warning(f'Could not get aggregating region, either not set, or a client error')
+        return aggregating_region
+
     @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     def get_findings(self, query_filter):
         """Retrieves findings from security hub.
@@ -619,7 +644,9 @@ class SecurityHub:
 
         """
         findings = set()
-        for region in self.regions:
+        aggregating_region = self._get_aggregating_region()
+        regions_to_retrieve = [aggregating_region] if aggregating_region else self.regions
+        for region in regions_to_retrieve:
             self._logger.debug(f'Trying to get findings for region {region}')
             session = boto3.Session(region_name=region)
             security_hub = session.client('securityhub')
