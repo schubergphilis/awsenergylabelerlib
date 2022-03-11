@@ -629,7 +629,7 @@ class SecurityHub:
             aggregating_region = data.get('FindingAggregators')[0].get('FindingAggregatorArn').split(':')[3]
             self._logger.info(f'Found aggregating region {aggregating_region}')
         except (IndexError, botocore.exceptions.ClientError):
-            self._logger.warning('Could not get aggregating region, either not set, or a client error')
+            self._logger.debug('Could not get aggregating region, either not set, or a client error')
         return aggregating_region
 
     @retry(retry_on_exceptions=botocore.exceptions.ClientError)
