@@ -661,7 +661,7 @@ class SecurityHub:
                         self._logger.debug(f'Adding finding with id {finding.id}')
                         findings.add(finding)
             except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
-                self._logger.warning(f'Check your access for Security Hub for region {region}.')
+                self._logger.debug(f'No access for Security Hub for region {region}.')
                 continue
         return list(findings)
 
