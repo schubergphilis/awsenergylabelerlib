@@ -244,7 +244,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         calculated_label = AggregateAccountsEnergyLabel('F',
                                                         best_label='F',
                                                         worst_label='F',
-                                                        accounts_measured=0)
+                                                        accounts_measured=number_of_accounts)
         for threshold in self.thresholds:
             label = threshold.get('label')
             percentage = threshold.get('percentage')
