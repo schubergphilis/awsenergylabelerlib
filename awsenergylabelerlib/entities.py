@@ -241,10 +241,6 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
         account_sums = []
         labels = []
-        calculated_label = AggregateAccountsEnergyLabel('F',
-                                                        best_label='F',
-                                                        worst_label='F',
-                                                        accounts_measured=number_of_accounts)
         for threshold in self.thresholds:
             label = threshold.get('label')
             percentage = threshold.get('percentage')
@@ -259,6 +255,12 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
                                                                 worst_label=max(label_counter.keys()),
                                                                 accounts_measured=number_of_accounts)
                 break
+        else:
+            self._logger.debug('Found no match with thresholds, using default worst label F.')
+            calculated_label = AggregateAccountsEnergyLabel('F',
+                                                            best_label=min(label_counter.keys()),
+                                                            worst_label=max(label_counter.keys()),
+                                                            accounts_measured=number_of_accounts)
         return calculated_label
 
     def get_energy_label(self, security_hub_findings):
