@@ -89,6 +89,9 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                                          denied_regions=denied_regions)
         self._account_labels_counter = None
         self._query_filter = None
+        self._landing_zone_energy_label = None
+        self._labeled_accounts_energy_label = None
+        self._landing_zone_labeled_accounts = None
 
     @property
     def initialized_security_hub_query_filter(self):
@@ -125,15 +128,23 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
     @property
     def landing_zone_energy_label(self):
         """Energy label of the landing zone."""
-        self._logger.debug(f'Landing zone accounts labeled are {len(self._landing_zone.accounts_to_be_labeled)}')
-        return self._landing_zone.get_energy_label(self.security_hub_findings)
+        if self._landing_zone_energy_label is None:
+            self._logger.debug(f'Landing zone accounts labeled are {len(self._landing_zone.accounts_to_be_labeled)}')
+            self._landing_zone_energy_label = self._landing_zone.get_energy_label(self.security_hub_findings)
+        return self._landing_zone_energy_label
 
     @property
     def labeled_accounts_energy_label(self):
         """Energy label of the labeled accounts."""
-        return self._landing_zone.get_energy_label_of_targeted_accounts(self.security_hub_findings)
+        if self._labeled_accounts_energy_label is None:
+            self._labeled_accounts_energy_label = self._landing_zone.get_energy_label_of_targeted_accounts(
+                self.security_hub_findings)
+        return self._labeled_accounts_energy_label
 
     @property
     def landing_zone_labeled_accounts(self):
         """The landing zone labeled account objects."""
-        return self._landing_zone.get_labeled_targeted_accounts(self.security_hub_findings)
+        if self._landing_zone_labeled_accounts is None:
+            self._landing_zone_labeled_accounts = self._landing_zone.get_labeled_targeted_accounts(
+                self.security_hub_findings)
+        return self._landing_zone_labeled_accounts

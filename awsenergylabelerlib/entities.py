@@ -357,6 +357,13 @@ class AwsAccount:
                     self._logger.debug(f'Energy Label for account {self.id} '
                                        f'has been calculated: {self.energy_label.label}')
                     break
+            else:
+                self._logger.debug(f'No match with thresholds for energy label, using default worst one.')
+                self.energy_label = AccountEnergyLabel('F',
+                                                       number_of_critical_high_findings,
+                                                       number_of_medium_findings,
+                                                       number_of_low_findings,
+                                                       max_days_open)
         except Exception:  # pylint: disable=broad-except
             self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
