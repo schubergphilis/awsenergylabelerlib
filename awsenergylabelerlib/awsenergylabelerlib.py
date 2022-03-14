@@ -123,7 +123,8 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
     @cached(cache=TTLCache(maxsize=150000, ttl=120))
     def security_hub_findings(self):
         """Security hub findings."""
-        return self.security_hub.get_findings(self.initialized_security_hub_query_filter)
+        findings = self.security_hub.get_findings(self.initialized_security_hub_query_filter)
+        return self.security_hub.filter_findings_by_frameworks(findings, self._frameworks)
 
     @property
     def landing_zone_energy_label(self):

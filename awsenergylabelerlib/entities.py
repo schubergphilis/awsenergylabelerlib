@@ -474,7 +474,7 @@ class Finding:  # pylint: disable=too-many-public-methods
 
     @property
     def is_pci_dss(self):
-        """Is this pic dss framework finding."""
+        """Is this pci dss framework finding."""
         return 'pci-dss/' in self.generator_id
 
     @property
@@ -651,9 +651,25 @@ class SecurityHub:
             self._logger.debug('Could not get aggregating region, either not set, or a client error')
         return aggregating_region
 
-    def _filter_findings_by_frameworks(self, findinds, frameworks):
-        # TODO implement the filtering of findings based on default frameworks for now
-        return findinds
+    @staticmethod
+    def filter_findings_by_frameworks(findings, frameworks):
+        """Filters provided findings by the provided frameworks.
+
+        Args:
+            findings: A list containing security hub findings
+            frameworks: The frameworks to filter for
+
+        Returns:
+            findings (list(Findings)): A list of findings matching the provided frameworks
+
+        """
+        frameworks = SecurityHub.validate_frameworks(frameworks)
+
+        def framework_to_finding_attribute(framework):
+            return f'is_{framework.replace("-", "_")}'
+        attributes = [framework_to_finding_attribute(framework) for framework in frameworks]
+        return [finding for finding in findings
+                if any([getattr(finding, attribute) for attribute in attributes])]
 
     @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     def get_findings(self, query_filter):
@@ -686,7 +702,7 @@ class SecurityHub:
             except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
                 self._logger.debug(f'No access for Security Hub for region {region}.')
                 continue
-        return self._filter_findings_by_frameworks(findings)
+        return findings
 
     @staticmethod
     def _calculate_account_id_filter(allowed_account_ids, denied_account_ids):
