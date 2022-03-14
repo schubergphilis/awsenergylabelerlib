@@ -320,6 +320,11 @@ class AwsAccount:
         df = findings  # pylint: disable=invalid-name
         try:
             open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
+        except KeyError:
+            self._logger.info(f'No findings for account {self.id}')
+            self.energy_label = AccountEnergyLabel('A', 0, 0, 0, 0)
+            return self.energy_label
+        try:
             number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
             number_of_high_findings = open_findings[open_findings['Severity'] == 'HIGH'].shape[0]
             number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
