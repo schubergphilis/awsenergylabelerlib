@@ -665,6 +665,27 @@ class SecurityHub:
                 continue
         return list(findings)
 
+    @staticmethod
+    def _calculate_account_id_filter(allowed_account_ids, denied_account_ids):
+        """Calculates the filter targeting allowed or denied account ids.
+
+        Args:
+            allowed_account_ids: The account ids if any.
+            denied_account_ids: The Denied ids if any.
+
+        Returns:
+            allowed_account_ids, denied_account_ids (tuple(list,list)): If any is set and are valid.
+
+        """
+        allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
+                                                                                      denied_account_ids)
+        aws_account_ids = []
+        if any([allowed_account_ids, denied_account_ids]):
+            comparison = 'EQUALS' if allowed_account_ids else 'NOT_EQUALS'
+            iterator = allowed_account_ids if allowed_account_ids else denied_account_ids
+            aws_account_ids = [{'Comparison': comparison, 'Value': account} for account in iterator]
+        return aws_account_ids
+
     #  pylint: disable=dangerous-default-value
     @staticmethod
     def calculate_query_filter(query_filter=DEFAULT_SECURITY_HUB_FILTER,
@@ -689,12 +710,8 @@ class SecurityHub:
         """
         query_filter = deepcopy(query_filter)
         _ = SecurityHub.validate_frameworks(frameworks)
-        allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
-                                                                                      denied_account_ids)
-        if any([allowed_account_ids, denied_account_ids]):
-            comparison = 'EQUALS' if allowed_account_ids else 'NOT_EQUALS'
-            iterator = allowed_account_ids if allowed_account_ids else denied_account_ids
-            aws_account_ids = [{'Comparison': comparison, 'Value': account} for account in iterator]
+        aws_account_ids = SecurityHub._calculate_account_id_filter(allowed_account_ids, denied_account_ids)
+        if aws_account_ids:
             query_filter.update({'AwsAccountId': aws_account_ids})
         return query_filter
 
