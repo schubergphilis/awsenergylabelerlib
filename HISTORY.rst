@@ -75,3 +75,28 @@ History
 ------------------
 
 * Edited the filter to only include FAILED findings so NOT_AVAILABLE aren't counted as findings anymore
+
+
+0.4.2 (02-03-2022)
+------------------
+
+* Suppressed findings are no longer counted into the calculation.
+* Framework validation works as expected now.
+
+
+0.4.3 (04-03-2022)
+------------------
+
+* Filtered out Archived findings.
+
+
+0.4.4 (04-03-2022)
+------------------
+
+* Filtered out archived findings.
+
+
+0.4.5 (04-03-2022)
+------------------
+
+* No duplicates anymore, unique findings only.
