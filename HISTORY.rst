@@ -106,3 +106,9 @@ History
 ------------------
 
 * Complete redesign of the api and many optimisations of retrieving findings and calculating labels.
+
+
+1.0.1 (14-03-2022)
+------------------
+
+* Cached some calculations to prevent duplications and standardized on default labels with properly retrieved values.
