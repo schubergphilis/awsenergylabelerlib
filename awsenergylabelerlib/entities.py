@@ -358,7 +358,7 @@ class AwsAccount:
                                        f'has been calculated: {self.energy_label.label}')
                     break
             else:
-                self._logger.debug(f'No match with thresholds for energy label, using default worst one.')
+                self._logger.debug('No match with thresholds for energy label, using default worst one.')
                 self.energy_label = AccountEnergyLabel('F',
                                                        number_of_critical_high_findings,
                                                        number_of_medium_findings,
