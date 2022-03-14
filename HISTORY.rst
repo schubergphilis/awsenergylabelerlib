@@ -100,3 +100,9 @@ History
 ------------------
 
 * No duplicates anymore, unique findings only.
+
+
+1.0.0 (14-03-2022)
+------------------
+
+* Complete redesign of the api and many optimisations of retrieving findings and calculating labels.
