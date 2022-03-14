@@ -651,6 +651,10 @@ class SecurityHub:
             self._logger.debug('Could not get aggregating region, either not set, or a client error')
         return aggregating_region
 
+    def _filter_findings_by_frameworks(self, findinds, frameworks):
+        # TODO implement the filtering of findings based on default frameworks for now
+        return findinds
+
     @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     def get_findings(self, query_filter):
         """Retrieves findings from security hub.
@@ -682,7 +686,7 @@ class SecurityHub:
             except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
                 self._logger.debug(f'No access for Security Hub for region {region}.')
                 continue
-        return list(findings)
+        return self._filter_findings_by_frameworks(findings)
 
     @staticmethod
     def _calculate_account_id_filter(allowed_account_ids, denied_account_ids):
