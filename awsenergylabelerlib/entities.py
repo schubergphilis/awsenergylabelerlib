@@ -702,7 +702,7 @@ class SecurityHub:
             except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
                 self._logger.debug(f'No access for Security Hub for region {region}.')
                 continue
-        return findings
+        return list(findings)
 
     @staticmethod
     def _calculate_account_id_filter(allowed_account_ids, denied_account_ids):
