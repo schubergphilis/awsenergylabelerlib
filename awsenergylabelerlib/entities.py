@@ -99,6 +99,7 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
         self.allowed_account_ids = self._validate_landing_zone_account_ids(allowed_account_ids, account_ids)
         self.denied_account_ids = self._validate_landing_zone_account_ids(denied_account_ids, account_ids)
         self._accounts_to_be_labeled = None
+        self._targeted_accounts_energy_label = None
 
     @staticmethod
     def _validate_landing_zone_account_ids(account_ids, landing_zone_account_ids):
@@ -235,31 +236,34 @@ class LandingZone:  # pylint: disable=too-many-instance-attributes
             energy_label (str): The energy label of the targeted accounts.
 
         """
-        labeled_accounts = self.get_labeled_targeted_accounts(security_hub_findings)
-        label_counter = Counter([account.energy_label.label for account in labeled_accounts])
-        number_of_accounts = len(labeled_accounts)
-        self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
-        account_sums = []
-        labels = []
-        calculated_label = AggregateAccountsEnergyLabel('F',
-                                                        best_label='F',
-                                                        worst_label='F',
-                                                        accounts_measured=0)
-        for threshold in self.thresholds:
-            label = threshold.get('label')
-            percentage = threshold.get('percentage')
-            labels.append(label)
-            account_sums.append(label_counter.get(label, 0))
-            self._logger.debug(f'Calculating for labels {labels} with threshold {percentage} '
-                               f'and sums of {account_sums}')
-            if sum(account_sums) / number_of_accounts * 100 >= percentage:
-                self._logger.debug(f'Found a match with label {label}')
-                calculated_label = AggregateAccountsEnergyLabel(label,
-                                                                best_label=min(label_counter.keys()),
-                                                                worst_label=max(label_counter.keys()),
-                                                                accounts_measured=number_of_accounts)
-                break
-        return calculated_label
+        if self._targeted_accounts_energy_label is None:
+            labeled_accounts = self.get_labeled_targeted_accounts(security_hub_findings)
+            label_counter = Counter([account.energy_label.label for account in labeled_accounts])
+            number_of_accounts = len(labeled_accounts)
+            self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
+            account_sums = []
+            labels = []
+            for threshold in self.thresholds:
+                label = threshold.get('label')
+                percentage = threshold.get('percentage')
+                labels.append(label)
+                account_sums.append(label_counter.get(label, 0))
+                self._logger.debug(f'Calculating for labels {labels} with threshold {percentage} '
+                                   f'and sums of {account_sums}')
+                if sum(account_sums) / number_of_accounts * 100 >= percentage:
+                    self._logger.debug(f'Found a match with label {label}')
+                    self._targeted_accounts_energy_label = AggregateAccountsEnergyLabel(label,
+                                                                                        min(label_counter.keys()),
+                                                                                        max(label_counter.keys()),
+                                                                                        number_of_accounts)
+                    break
+            else:
+                self._logger.debug('Found no match with thresholds, using default worst label F.')
+                self._targeted_accounts_energy_label = AggregateAccountsEnergyLabel('F',
+                                                                                    min(label_counter.keys()),
+                                                                                    max(label_counter.keys()),
+                                                                                    number_of_accounts)
+        return self._targeted_accounts_energy_label
 
     def get_energy_label(self, security_hub_findings):
         """Calculates and returns the energy label of the Landing Zone.
@@ -357,6 +361,13 @@ class AwsAccount:
                     self._logger.debug(f'Energy Label for account {self.id} '
                                        f'has been calculated: {self.energy_label.label}')
                     break
+            else:
+                self._logger.debug('No match with thresholds for energy label, using default worst one.')
+                self.energy_label = AccountEnergyLabel('F',
+                                                       number_of_critical_high_findings,
+                                                       number_of_medium_findings,
+                                                       number_of_low_findings,
+                                                       max_days_open)
         except Exception:  # pylint: disable=broad-except
             self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
