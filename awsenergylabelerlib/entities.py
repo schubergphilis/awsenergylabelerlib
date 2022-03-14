@@ -33,20 +33,36 @@ Import all parts from entities here
 """
 
 import logging
+import tempfile
+from collections import Counter
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse, urljoin
 
 import boto3
 import botocore.errorfactory
 import botocore.exceptions
+import pandas as pd
 from botocore.config import Config
 from cachetools import cached, TTLCache
 from opnieuw import retry
+from pandas.core.frame import DataFrame
 
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             NoAccess,
-                                            NoRegion)
+                                            NoRegion,
+                                            AccountsNotPartOfLandingZone,
+                                            InvalidPath)
+from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
+                            DEFAULT_SECURITY_HUB_FILTER,
+                            LANDING_ZONE_THRESHOLDS,
+                            ACCOUNT_THRESHOLDS,
+                            FILE_EXPORT_TYPES)
+from .labels import AccountEnergyLabel, AggregateAccountsEnergyLabel, LandingZoneEnergyLabel
+from .validations import validate_allowed_denied_account_ids, validate_allowed_denied_regions, DestinationPath
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -62,15 +78,48 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class LandingZone:
+class LandingZone:  # pylint: disable=too-many-instance-attributes
     """Models the landing zone and retrieves accounts from it."""
 
-    def __init__(self, name, thresholds, account_thresholds):
+    # pylint: disable=too-many-arguments,dangerous-default-value
+    def __init__(self,
+                 name,
+                 thresholds=LANDING_ZONE_THRESHOLDS,
+                 account_thresholds=ACCOUNT_THRESHOLDS,
+                 allowed_account_ids=None,
+                 denied_account_ids=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.organizations = self._get_client()
         self.name = name
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
+        account_ids = [account.id for account in self.accounts]
+        allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
+                                                                                      denied_account_ids)
+        self.allowed_account_ids = self._validate_landing_zone_account_ids(allowed_account_ids, account_ids)
+        self.denied_account_ids = self._validate_landing_zone_account_ids(denied_account_ids, account_ids)
+        self._accounts_to_be_labeled = None
+
+    @staticmethod
+    def _validate_landing_zone_account_ids(account_ids, landing_zone_account_ids):
+        """Validates that a provided list of valid AWS account ids are actually part of the landing zone.
+
+        Args:
+            account_ids: A list of valid AWS account ids.
+            landing_zone_account_ids: All the landing zone account ids.
+
+        Returns:
+            account_ids (list): A list of account ids that are part of the landing zone.
+
+        Raises:
+            AccountsNotPartOfLandingZone: If account ids are not part of the current landing zone.
+
+        """
+        accounts_not_in_landing_zone = set(account_ids) - set(landing_zone_account_ids)
+        if accounts_not_in_landing_zone:
+            raise AccountsNotPartOfLandingZone(f'The following account ids provided are not part of the landing zone :'
+                                               f' {accounts_not_in_landing_zone}')
+        return account_ids
 
     @staticmethod
     def _get_client():
@@ -96,16 +145,6 @@ class LandingZone:
         return f'{self.name} landing zone'
 
     @property
-    def account_ids(self):
-        """Accounts ids of the accounts.
-
-        Returns:
-            List of account ids for provided accounts
-
-        """
-        return [account.id for account in self.accounts]
-
-    @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
     def accounts(self):
         """Accounts of the landing zone.
@@ -123,99 +162,195 @@ class LandingZone:
         try:
             for page in iterator:
                 for account in page['Accounts']:
-                    account = AwsAccount(account.get('Id'), account.get('Name'), self, self.account_thresholds)
+                    account = AwsAccount(account.get('Id'), account.get('Name'), self.account_thresholds)
                     aws_accounts.append(account)
             return aws_accounts
         except self.organizations.exceptions.AccessDeniedException as msg:
             raise NoAccess(msg) from None
 
-    def get_allowed_accounts(self, allow_list):
+    def get_allowed_accounts(self):
         """Retrieves allowed accounts based on an allow list.
-
-        Args:
-            allow_list: A string of comma delimited accounts numbers or a list or tuple of account numbers.
 
         Returns:
             The list of accounts based on the allowed list.
 
         """
-        return [account for account in self.accounts if account.id in allow_list]
+        return [account for account in self.accounts if account.id in self.allowed_account_ids]
 
-    def get_not_denied_accounts(self, deny_list):
+    def get_not_denied_accounts(self):
         """Retrieves allowed accounts based on an deny list.
-
-        Args:
-            deny_list: A string of comma delimited accounts numbers or a list or tuple of account numbers.
 
         Returns:
             The list of accounts not on the deny list.
 
         """
-        return [account for account in self.accounts if account.id not in deny_list]
+        return [account for account in self.accounts if account.id not in self.denied_account_ids]
+
+    @property
+    def accounts_to_be_labeled(self):
+        """Account to be labeled according to the allow or deny list arguments.
+
+        Returns:
+            account (list): A list of accounts to be labeled.
+
+        """
+        if self._accounts_to_be_labeled is None:
+            if self.allowed_account_ids:
+                self._logger.debug(f'Working on allow list {self.allowed_account_ids}')
+                self._accounts_to_be_labeled = self.get_allowed_accounts()
+            elif self.denied_account_ids:
+                self._logger.debug(f'Working on deny list {self.denied_account_ids}')
+                self._accounts_to_be_labeled = self.get_not_denied_accounts()
+            else:
+                self._logger.debug('Working on all landing zone accounts')
+                self._accounts_to_be_labeled = self.accounts
+        return self._accounts_to_be_labeled
+
+    def get_labeled_targeted_accounts(self, security_hub_findings):
+        """Labels the accounts based on the allow and deny list provided.
+
+        Args:
+            security_hub_findings: The findings for a landing zone.
+
+        Returns:
+            labeled_accounts (list): A list of AwsAccount objects that have their labels calculated.
+
+        """
+        labeled_accounts = []
+        self._logger.debug('Calculating on security hub findings')
+        dataframe_measurements = pd.DataFrame([finding.measurement_data for finding in security_hub_findings])
+        for account in self.accounts_to_be_labeled:
+            self._logger.debug(f'Calculating energy label for account {account.id}')
+            account.calculate_energy_label(dataframe_measurements)
+            labeled_accounts.append(account)
+        return labeled_accounts
+
+    def get_energy_label_of_targeted_accounts(self, security_hub_findings):
+        """Get the energy label of the targeted accounts.
+
+        Args:
+            security_hub_findings: The findings from security hub.
+
+        Returns:
+            energy_label (str): The energy label of the targeted accounts.
+
+        """
+        labeled_accounts = self.get_labeled_targeted_accounts(security_hub_findings)
+        label_counter = Counter([account.energy_label.label for account in labeled_accounts])
+        number_of_accounts = len(labeled_accounts)
+        self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
+        account_sums = []
+        labels = []
+        calculated_label = "F"
+        for threshold in self.thresholds:
+            label = threshold.get('label')
+            percentage = threshold.get('percentage')
+            labels.append(label)
+            account_sums.append(label_counter.get(label, 0))
+            self._logger.debug(f'Calculating for labels {labels} with threshold {percentage} '
+                               f'and sums of {account_sums}')
+            if sum(account_sums) / number_of_accounts * 100 >= percentage:
+                self._logger.debug(f'Found a match with label {label}')
+                calculated_label = AggregateAccountsEnergyLabel(label,
+                                                                best_label=min(label_counter.keys()),
+                                                                worst_label=max(label_counter.keys()),
+                                                                accounts_measured=number_of_accounts)
+                break
+        return calculated_label
+
+    def get_energy_label(self, security_hub_findings):
+        """Calculates and returns the energy label of the Landing Zone.
+
+        Args:
+            security_hub_findings: The measurement data of all the findings for a landing zone.
+
+        Returns:
+            energy_label (LandingZoneEnergyLabel): The labeling object of the landing zone.
+
+        """
+        aggregate_label = self.get_energy_label_of_targeted_accounts(security_hub_findings)
+        coverage_percentage = len(self.accounts_to_be_labeled) / len(self.accounts) * 100
+        return LandingZoneEnergyLabel(aggregate_label.label,
+                                      best_label=aggregate_label.best_label,
+                                      worst_label=aggregate_label.worst_label,
+                                      coverage=f'{coverage_percentage:.2f}%')
 
 
 @dataclass
-class AwsAccount:  # pylint: disable=too-many-instance-attributes
+class AwsAccount:
     """Models the aws account that can label itself."""
 
     id: str  # pylint: disable=invalid-name
     name: str
-    landing_zone: LandingZone
     account_thresholds: list
-    energy_label: str = ""
-    number_of_critical_high_findings: int = 0
-    number_of_medium_findings: int = 0
-    number_of_low_findings: int = 0
-    max_days_open: int = 0
+    energy_label: AccountEnergyLabel = AccountEnergyLabel()
+    _alias: str = None
 
     def __post_init__(self):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
-    def calculate_energy_label(self, findings_measurements_frame):
+    @property
+    def alias(self):
+        """Alias."""
+        if self._alias is None:
+            self._alias = ''
+            try:
+                self._alias = boto3.client('iam').list_account_aliases()['AccountAliases'][0]
+            except IndexError:
+                LOGGER.debug(f'Alias for account {self.id} is not set.')
+            except botocore.exceptions.ClientError as msg:
+                LOGGER.error(f'Alias for account {self.id} could not be retrieved with message {msg}.')
+        return self._alias
+
+    def calculate_energy_label(self, findings):
         """Calculates the energy label for the account.
 
         Args:
-            findings_measurements_frame: Dataframe with the measurements on findings from security hub.
+            findings: Either a list of security hub findings or a dataframe of security hub findings.
 
         Returns:
             The energy label of the account based on the provided configuration.
 
         """
-        if not self.energy_label:
-            self.energy_label = "F"
-            df = findings_measurements_frame  # pylint: disable=invalid-name
-            try:
-                open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
-                number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
-                number_of_high_findings = open_findings[open_findings['Severity'] == 'HIGH'].shape[0]
-                self.number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
-                self.number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
-                self.number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
-                open_findings_low_or_higher = open_findings[(open_findings['Severity'] == 'LOW') |
-                                                            (open_findings['Severity'] == 'MEDIUM') |
-                                                            (open_findings['Severity'] == 'HIGH') |
-                                                            (open_findings['Severity'] == 'CRITICAL')]
-                self.max_days_open = max(open_findings_low_or_higher['Days Open']) \
-                    if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
+        if not issubclass(DataFrame, type(findings)):
+            findings = pd.DataFrame([finding.measurement_data for finding in findings])
+        df = findings  # pylint: disable=invalid-name
+        try:
+            open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
+            number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
+            number_of_high_findings = open_findings[open_findings['Severity'] == 'HIGH'].shape[0]
+            number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
+            number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
+            number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
+            open_findings_low_or_higher = open_findings[(open_findings['Severity'] == 'LOW') |
+                                                        (open_findings['Severity'] == 'MEDIUM') |
+                                                        (open_findings['Severity'] == 'HIGH') |
+                                                        (open_findings['Severity'] == 'CRITICAL')]
+            max_days_open = max(open_findings_low_or_higher['Days Open']) \
+                if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
 
-                self._logger.debug(f'Calculating for account {self.id} '
-                                   f'with number of critical+high findings '
-                                   f'{self.number_of_critical_high_findings}, '
-                                   f'number of medium findings {self.number_of_medium_findings}, '
-                                   f'number of low findings {self.number_of_low_findings}, '
-                                   f'and findings have been open for over '
-                                   f'{self.max_days_open} days')
-                for threshold in self.account_thresholds:
-                    if self.number_of_critical_high_findings <= threshold['critical_high'] \
-                            and self.number_of_medium_findings <= threshold['medium'] \
-                            and self.number_of_low_findings <= threshold['low'] \
-                            and self.max_days_open < threshold['days_open_less_than']:
-                        self.energy_label = threshold['label']
-                        self._logger.debug(f'Energy Label for account {self.id} '
-                                           f'has been calculated: {self.energy_label}')
-                        break
-            except Exception:  # pylint: disable=broad-except
-                self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
+            self._logger.debug(f'Calculating for account {self.id} '
+                               f'with number of critical+high findings '
+                               f'{number_of_critical_high_findings}, '
+                               f'number of medium findings {number_of_medium_findings}, '
+                               f'number of low findings {number_of_low_findings}, '
+                               f'and findings have been open for over '
+                               f'{max_days_open} days')
+            for threshold in self.account_thresholds:
+                if all([number_of_critical_high_findings <= threshold['critical_high'],
+                        number_of_medium_findings <= threshold['medium'],
+                        number_of_low_findings <= threshold['low'],
+                        max_days_open < threshold['days_open_less_than']]):
+                    self.energy_label = AccountEnergyLabel(threshold['label'],
+                                                           number_of_critical_high_findings,
+                                                           number_of_medium_findings,
+                                                           number_of_low_findings,
+                                                           max_days_open)
+                    self._logger.debug(f'Energy Label for account {self.id} '
+                                       f'has been calculated: {self.energy_label.label}')
+                    break
+        except Exception:  # pylint: disable=broad-except
+            self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
 
 
@@ -419,29 +554,16 @@ class Finding:  # pylint: disable=too-many-public-methods
         }
 
 
-class SecurityHub:  # pylint: disable=too-few-public-methods
-    """Singleton for security hub."""
-
-    instance = None
-
-    def __new__(cls, query_filter, region=None, allowed_regions=None, denied_regions=None):
-        if not SecurityHub.instance:
-            SecurityHub.instance = _SecurityHub(query_filter, region, allowed_regions, denied_regions)
-        return SecurityHub.instance
-
-
-class _SecurityHub:  # pylint: disable=too-many-instance-attributes
+class SecurityHub:
     """Models security hub and can retrieve findings."""
 
     frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
 
-    def __init__(self, query_filter, region=None, allowed_regions=None, denied_regions=None):
+    def __init__(self, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self.allowed_regions = allowed_regions
-        self.denied_regions = denied_regions
+        self.allowed_regions, self.denied_regions = validate_allowed_denied_regions(allowed_regions, denied_regions)
         self.sts = boto3.client('sts')
         self.ec2 = self._get_client(region)
-        self.query_filter = query_filter
         self._aws_regions = None
         self.aws_region = region if region in self.regions else self.sts._client_config.region_name  # noqa
 
@@ -482,30 +604,6 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
             self._logger.debug('Working on all regions')
         return self._aws_regions
 
-    @property
-    @retry(retry_on_exceptions=botocore.exceptions.ClientError)
-    @cached(cache=TTLCache(maxsize=150000, ttl=3600))
-    def _findings(self):
-        findings = set()
-        for region in self.regions:
-            self._logger.debug(f'Trying to get findings for region {region}')
-            session = boto3.Session(region_name=region)
-            security_hub = session.client('securityhub')
-            paginator = security_hub.get_paginator('get_findings')
-            iterator = paginator.paginate(
-                Filters=self.query_filter
-            )
-            try:
-                for page in iterator:
-                    for finding_data in page['Findings']:
-                        finding = Finding(finding_data)
-                        self._logger.debug(f'Adding finding with id {finding.id}')
-                        findings.add(finding)
-            except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
-                self._logger.warning(f'Check your access for Security Hub for region {region}.')
-                continue
-        return list(findings)
-
     @staticmethod
     def validate_frameworks(frameworks):
         """Validates provided frameworks.
@@ -519,38 +617,172 @@ class _SecurityHub:  # pylint: disable=too-many-instance-attributes
         """
         if not isinstance(frameworks, (list, tuple, set)):
             frameworks = [frameworks]
-        return set(frameworks).issubset(_SecurityHub.frameworks)
+        if set(frameworks).issubset(SecurityHub.frameworks):
+            return frameworks
+        raise InvalidFrameworks(frameworks)
 
-    def get_findings_for_frameworks(self, frameworks):
-        """Gets findings based on provided frameworks.
+    def _get_aggregating_region(self):
+        aggregating_region = None
+        client = boto3.client('securityhub')
+        try:
+            data = client.list_finding_aggregators()
+            aggregating_region = data.get('FindingAggregators')[0].get('FindingAggregatorArn').split(':')[3]
+            self._logger.info(f'Found aggregating region {aggregating_region}')
+        except (IndexError, botocore.exceptions.ClientError):
+            self._logger.debug('Could not get aggregating region, either not set, or a client error')
+        return aggregating_region
 
-        Args:
-            frameworks: A list of valid frameworks for filter findings on.
-
-        Returns:
-            List of findings matching the provided frameworks.
-
-        """
-        if not isinstance(frameworks, (list, tuple)):
-            frameworks = [frameworks]
-        if not self.validate_frameworks(frameworks):
-            raise InvalidFrameworks(f'Only {self.frameworks} are supported, {frameworks} were provided.')
-        findings = []
-        for framework in frameworks:
-            self._logger.debug(f'Getting findings for framework : {framework}')
-            attribute = f'is_{framework.replace("-", "_")}'
-            findings.extend([finding for finding in self._findings if getattr(finding, attribute)])
-        return findings
-
-    def get_findings_measurement_data_for_frameworks(self, frameworks):
-        """Gets measurement data from findings based on provided frameworks.
+    @retry(retry_on_exceptions=botocore.exceptions.ClientError)
+    def get_findings(self, query_filter):
+        """Retrieves findings from security hub.
 
         Args:
-            frameworks: A list of valid frameworks for filter measurement finding data on.
+            query_filter (dict): The query filter to execute on security hub to get the findings.
 
         Returns:
-            List of measurement data of findings matching the provided frameworks.
+            findings (list): A list of findings from security hub.
 
         """
-        findings = self.get_findings_for_frameworks(frameworks)
-        return [finding.measurement_data for finding in findings]
+        findings = set()
+        aggregating_region = self._get_aggregating_region()
+        regions_to_retrieve = [aggregating_region] if aggregating_region else self.regions
+        for region in regions_to_retrieve:
+            self._logger.debug(f'Trying to get findings for region {region}')
+            session = boto3.Session(region_name=region)
+            security_hub = session.client('securityhub')
+            paginator = security_hub.get_paginator('get_findings')
+            iterator = paginator.paginate(
+                Filters=query_filter
+            )
+            try:
+                for page in iterator:
+                    for finding_data in page['Findings']:
+                        finding = Finding(finding_data)
+                        self._logger.debug(f'Adding finding with id {finding.id}')
+                        findings.add(finding)
+            except (security_hub.exceptions.InvalidAccessException, security_hub.exceptions.AccessDeniedException):
+                self._logger.debug(f'No access for Security Hub for region {region}.')
+                continue
+        return list(findings)
+
+    @staticmethod
+    def _calculate_account_id_filter(allowed_account_ids, denied_account_ids):
+        """Calculates the filter targeting allowed or denied account ids.
+
+        Args:
+            allowed_account_ids: The account ids if any.
+            denied_account_ids: The Denied ids if any.
+
+        Returns:
+            allowed_account_ids, denied_account_ids (tuple(list,list)): If any is set and are valid.
+
+        """
+        allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
+                                                                                      denied_account_ids)
+        aws_account_ids = []
+        if any([allowed_account_ids, denied_account_ids]):
+            comparison = 'EQUALS' if allowed_account_ids else 'NOT_EQUALS'
+            iterator = allowed_account_ids if allowed_account_ids else denied_account_ids
+            aws_account_ids = [{'Comparison': comparison, 'Value': account} for account in iterator]
+        return aws_account_ids
+
+    #  pylint: disable=dangerous-default-value
+    @staticmethod
+    def calculate_query_filter(query_filter=DEFAULT_SECURITY_HUB_FILTER,
+                               allowed_account_ids=None,
+                               denied_account_ids=None,
+                               frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS):
+        """Calculates a Security Hub compatible filter for retrieving findings.
+
+        Depending on arguments provided for allow list, deny list and frameworks to retrieve a query is constructed to
+        retrieve only appropriate findings, offloading the filter on the back end.
+
+        Args:
+            query_filter: The default filter if no filter is provided.
+            allowed_account_ids: The allow list of account ids to get the findings for.
+            denied_account_ids: The deny list of account ids to filter out findings for.
+            frameworks: The default frameworks if no frameworks are provided.
+
+
+        Returns:
+            query_filter (dict): The query filter calculated based on the provided arguments.
+
+        """
+        query_filter = deepcopy(query_filter)
+        _ = SecurityHub.validate_frameworks(frameworks)
+        aws_account_ids = SecurityHub._calculate_account_id_filter(allowed_account_ids, denied_account_ids)
+        if aws_account_ids:
+            query_filter.update({'AwsAccountId': aws_account_ids})
+        return query_filter
+
+
+class DataExporter:  # pylint: disable=too-few-public-methods
+    """Export AWS security data."""
+
+    #  pylint: disable=too-many-arguments
+    def __init__(self, export_types, name, energy_label, security_hub_findings, labeled_accounts):
+        self.name = name
+        self.energy_label = energy_label
+        self.security_hub_findings = security_hub_findings
+        self.labeled_accounts = labeled_accounts
+        self.export_types = export_types
+        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+
+    def export(self, path):
+        """Exports the data to the provided path."""
+        destination = DestinationPath(path)
+        if not destination.is_valid():
+            raise InvalidPath(path)
+        for export_type in self.export_types:
+            data_file = DataFileFactory(export_type,
+                                        self.name,
+                                        self.energy_label,
+                                        self.security_hub_findings,
+                                        self.labeled_accounts)
+            if destination.type == 's3':
+                self._export_to_s3(path, data_file.filename, data_file.json)  # pylint: disable=no-member
+            else:
+                self._export_to_fs(path, data_file.filename, data_file.json)  # pylint: disable=no-member
+
+    def _export_to_fs(self, directory, filename, data):
+        """Exports as json to local filesystem."""
+        path = Path(directory)
+        try:
+            path.mkdir()
+        except FileExistsError:
+            self._logger.debug(f'Directory {directory} already exists.')
+        with open(path.joinpath(filename), 'w') as jsonfile:
+            jsonfile.write(data)
+        self._logger.info(f'File {filename} copied to {directory}')
+
+    def _export_to_s3(self, s3_url, filename, data):
+        """Exports as json to S3 object storage."""
+        s3 = boto3.client('s3')  # pylint: disable=invalid-name
+        parsed_url = urlparse(s3_url)
+        bucket_name = parsed_url.netloc
+        dst_path = parsed_url.path
+        with tempfile.NamedTemporaryFile() as temp_file:
+            temp_file.write(data.encode('utf-8'))
+            temp_file.flush()
+            dst_filename = urljoin(dst_path, filename)
+            s3.upload_file(temp_file.name, bucket_name, dst_filename)
+            temp_file.close()
+        self._logger.info(f'File {filename} copied to {s3_url}')
+
+
+class DataFileFactory:  # pylint: disable=too-few-public-methods
+    """Data export factory to handle the different data types returned."""
+
+    #  pylint: disable=too-many-arguments, unused-argument
+    def __new__(cls, export_type, name, energy_label, security_hub_findings, labeled_accounts):
+        data_file_configuration = next((datafile for datafile in FILE_EXPORT_TYPES
+                                        if datafile.get('type') == export_type.lower()), None)
+
+        if not data_file_configuration:
+            LOGGER.error('Unknown data type %s', export_type)
+            return None
+        obj = data_file_configuration.get('object_type')
+        arguments = {'filename': data_file_configuration.get('filename')}
+        arguments.update({key: value for key, value in copy(locals()).items()
+                          if key in data_file_configuration.get('required_arguments')})
+        return obj(**arguments)

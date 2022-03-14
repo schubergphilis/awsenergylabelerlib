@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# File: awsenergylabelerlibexceptions.py
+# File: labels.py
 #
-# Copyright 2021 Costas Tyfoxylos, Jenda Brands, Theodoor Scholte
+# Copyright 2022 Costas Tyfoxylos, Jenda Brands, Theodoor Scholte
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to
@@ -24,59 +24,60 @@
 #
 
 """
-Custom exception code for awsenergylabelerlib.
+schemas package.
+
+Import all parts from schemas here
 
 .. _Google Python Style Guide:
    http://google.github.io/styleguide/pyguide.html
-
 """
+
+import logging
+from dataclasses import dataclass
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
-__date__ = '''09-11-2021'''
-__copyright__ = '''Copyright 2021, Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
-__credits__ = ["Costas Tyfoxylos", "Jenda Brands", "Theodoor Scholte"]
+__date__ = '''08-04-2022'''
+__copyright__ = '''Copyright 2022, Costas Tyfoxylos, Jenda Brands, Theodoor Scholte'''
 __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-
-class InvalidFrameworks(Exception):
-    """The frameworks provided are not valid."""
-
-
-class InvalidAccountListProvided(Exception):
-    """The list of accounts provided are not valid AWS accounts."""
+LOGGER_BASENAME = '''labels'''
+LOGGER = logging.getLogger(LOGGER_BASENAME)
+LOGGER.addHandler(logging.NullHandler())
 
 
-class InvalidRegionListProvided(Exception):
-    """The list of regions provided are not valid AWS regions."""
+@dataclass
+class AggregateEnergyLabel:
+    """Models an energy label averaging multiple account labels."""
+
+    label: str
+    best_label: str
+    worst_label: str
 
 
-class MutuallyExclusiveArguments(Exception):
-    """The arguments provided are mutually exclusive and only one of the should be provided."""
+@dataclass
+class AggregateAccountsEnergyLabel(AggregateEnergyLabel):
+    """Models an energy label averaging multiple accounts."""
+
+    accounts_measured: str
 
 
-class InvalidOrNoCredentials(Exception):
-    """Invalid or no credentials were provided from the environment."""
+@dataclass
+class LandingZoneEnergyLabel(AggregateEnergyLabel):
+    """Models the landing zone energy label."""
+
+    coverage: str
 
 
-class NoAccess(Exception):
-    """The credentials provided do not provide access to the resources."""
+@dataclass
+class AccountEnergyLabel:
+    """Models the account energy label."""
 
-
-class NoRegion(Exception):
-    """No region is set on the environment or provided to the library."""
-
-
-class AccountsNotPartOfLandingZone(Exception):
-    """If accounts ids are provided but are not part of the landing zone."""
-
-
-class UnableToRetrieveSecurityHubRegions(Exception):
-    """Could not retrieve the regions security hub is active in."""
-
-
-class InvalidPath(Exception):
-    """The path provided is not valid."""
+    label: str = "F"
+    number_of_critical_high_findings: int = 9999
+    number_of_medium_findings: int = 9999
+    number_of_low_findings: int = 9999
+    max_days_open: int = 9999

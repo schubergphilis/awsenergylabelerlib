@@ -32,6 +32,7 @@ Import all parts from schemas here
    http://google.github.io/styleguide/pyguide.html
 """
 
+import logging
 from schema import Schema, And
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
@@ -43,9 +44,9 @@ __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
-
-security_hub_filter_schema = Schema({'UpdatedAt': [{'DateRange': {'Unit': 'DAYS',
-                                                                  'Value': And(int, lambda n: n > 0)}}]})
+LOGGER_BASENAME = '''schemas'''
+LOGGER = logging.getLogger(LOGGER_BASENAME)
+LOGGER.addHandler(logging.NullHandler())
 
 account_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
                                      'critical_high': And(int, lambda n: n >= 0),
