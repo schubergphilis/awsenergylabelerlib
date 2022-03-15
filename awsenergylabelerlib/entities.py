@@ -55,7 +55,8 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             NoAccess,
                                             NoRegion,
                                             AccountsNotPartOfLandingZone,
-                                            InvalidPath)
+                                            InvalidPath,
+                                            InvalidRegion)
 from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             LANDING_ZONE_THRESHOLDS,
@@ -584,7 +585,14 @@ class SecurityHub:
         self.sts = self._get_sts_client()
         self.ec2 = self._get_ec2_client(region)
         self._aws_regions = None
-        self.aws_region = region if region in self.regions else self._sts_client_config_region
+        self.aws_region = self._validate_region(region) or self._sts_client_config_region
+
+    def _validate_region(self, region):
+        if not region:
+            return region
+        if region not in self.regions:
+            raise InvalidRegion(region)
+        return region
 
     @property
     def _sts_client_config_region(self):
