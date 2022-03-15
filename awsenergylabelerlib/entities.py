@@ -607,12 +607,15 @@ class SecurityHub:
             raise InvalidOrNoCredentials(msg) from None
         return client
 
+    def _describe_ec2_regions(self):
+        return self.ec2.describe_regions().get('Regions')
+
     @property
     def regions(self):
         """Regions."""
         if self._aws_regions is None:
             self._aws_regions = [region.get('RegionName')
-                                 for region in self.ec2.describe_regions().get('Regions')
+                                 for region in self._describe_ec2_regions()
                                  if not region.get('OptInStatus', '') == 'not-opted-in']
             self._logger.debug(f'Regions in EC2 that were opted in are : {self._aws_regions}')
 
