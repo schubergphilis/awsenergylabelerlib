@@ -584,7 +584,11 @@ class SecurityHub:
         self.sts = self._get_sts_client()
         self.ec2 = self._get_ec2_client(region)
         self._aws_regions = None
-        self.aws_region = region if region in self.regions else self.sts._client_config.region_name  # noqa
+        self.aws_region = region if region in self.regions else self._sts_client_config_region
+
+    @property
+    def _sts_client_config_region(self):
+        return self.sts._client_config.region_name  # noqa
 
     @staticmethod
     def _get_sts_client():
