@@ -67,7 +67,7 @@ def is_valid_account_id(account_id):
     """
     if not isinstance(account_id, str):
         return False
-    return all([len(account_id) == 12, account_id.isdigit(), not account_id.startswith('0')])
+    return all([len(account_id) == 12, account_id.isdigit()])
 
 
 def are_valid_account_ids(account_ids):

@@ -690,9 +690,7 @@ class SecurityHub:
             session = boto3.Session(region_name=region)
             security_hub = session.client('securityhub')
             paginator = security_hub.get_paginator('get_findings')
-            iterator = paginator.paginate(
-                Filters=query_filter
-            )
+            iterator = paginator.paginate(Filters=query_filter)
             try:
                 for page in iterator:
                     for finding_data in page['Findings']:
