@@ -581,13 +581,17 @@ class SecurityHub:
     def __init__(self, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.allowed_regions, self.denied_regions = validate_allowed_denied_regions(allowed_regions, denied_regions)
-        self.sts = boto3.client('sts')
-        self.ec2 = self._get_client(region)
+        self.sts = self._get_sts_client()
+        self.ec2 = self._get_ec2_client(region)
         self._aws_regions = None
         self.aws_region = region if region in self.regions else self.sts._client_config.region_name  # noqa
 
     @staticmethod
-    def _get_client(region):
+    def _get_sts_client():
+        return boto3.client('sts')
+
+    @staticmethod
+    def _get_ec2_client(region):
         kwargs = {}
         if region:
             config = Config(region_name=region)
