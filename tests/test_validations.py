@@ -55,7 +55,7 @@ class TestValidations(unittest.TestCase):
     def test_valid_account_id(self):
         self.assertTrue(is_valid_account_id('123456789123'))
         self.assertFalse(is_valid_account_id('12345678912'))
-        self.assertFalse(is_valid_account_id('023456789123'))
+        self.assertTrue(is_valid_account_id('023456789123'))
         self.assertFalse(is_valid_account_id('123456789123a'))
         self.assertFalse(is_valid_account_id('123456789123a'))
         self.assertFalse(is_valid_account_id('garbage'))
@@ -64,7 +64,7 @@ class TestValidations(unittest.TestCase):
 
     def test_valid_account_ids(self):
         self.assertTrue(are_valid_account_ids(['123456789123', '223456789123']))
-        self.assertFalse(are_valid_account_ids(['023456789123', '223456789123']))
+        self.assertTrue(are_valid_account_ids(['023456789123', '223456789123']))
         self.assertFalse(are_valid_account_ids(['12345678913', '223456789123']))
         self.assertFalse(are_valid_account_ids(['12345678913', '2234567891234']))
         self.assertFalse(are_valid_account_ids(['garbage', '223456789123']))

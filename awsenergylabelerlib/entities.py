@@ -474,7 +474,7 @@ class Finding:  # pylint: disable=too-many-public-methods
 
     @property
     def is_pci_dss(self):
-        """Is this pic dss framework finding."""
+        """Is this pci dss framework finding."""
         return 'pci-dss/' in self.generator_id
 
     @property
@@ -651,6 +651,26 @@ class SecurityHub:
             self._logger.debug('Could not get aggregating region, either not set, or a client error')
         return aggregating_region
 
+    @staticmethod
+    def filter_findings_by_frameworks(findings, frameworks):
+        """Filters provided findings by the provided frameworks.
+
+        Args:
+            findings: A list containing security hub findings
+            frameworks: The frameworks to filter for
+
+        Returns:
+            findings (list(Findings)): A list of findings matching the provided frameworks
+
+        """
+        frameworks = SecurityHub.validate_frameworks(frameworks)
+
+        def framework_to_finding_attribute(framework):
+            return f'is_{framework.replace("-", "_")}'
+        attributes = [framework_to_finding_attribute(framework) for framework in frameworks]
+        return [finding for finding in findings
+                if any([getattr(finding, attribute) for attribute in attributes])]
+
     @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     def get_findings(self, query_filter):
         """Retrieves findings from security hub.
@@ -670,9 +690,7 @@ class SecurityHub:
             session = boto3.Session(region_name=region)
             security_hub = session.client('securityhub')
             paginator = security_hub.get_paginator('get_findings')
-            iterator = paginator.paginate(
-                Filters=query_filter
-            )
+            iterator = paginator.paginate(Filters=query_filter)
             try:
                 for page in iterator:
                     for finding_data in page['Findings']:
