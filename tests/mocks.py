@@ -73,7 +73,7 @@ class LandingZone(LandingZoneToMock):
     def accounts(self):
         with open('tests/fixtures/accounts.json') as ifile:
             accounts_data = json.loads(ifile.read())
-        return [AwsAccount(account.get('Id'), account.get('Name'), self.account_thresholds)
+        return [AwsAccount(account.get('id'), account.get('name'), self.account_thresholds)
                 for account in accounts_data]
 
 
