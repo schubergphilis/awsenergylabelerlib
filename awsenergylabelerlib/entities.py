@@ -588,11 +588,9 @@ class SecurityHub:
         self.aws_region = self._validate_region(region) or self._sts_client_config_region
 
     def _validate_region(self, region):
-        if not region:
+        if any([not region, region in self.regions]):
             return region
-        if region not in self.regions:
-            raise InvalidRegion(region)
-        return region
+        raise InvalidRegion(region)
 
     @property
     def _sts_client_config_region(self):
