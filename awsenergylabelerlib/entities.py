@@ -622,7 +622,6 @@ class SecurityHub:
                                  for region in self._describe_ec2_regions()
                                  if not region.get('OptInStatus', '') == 'not-opted-in']
             self._logger.debug(f'Regions in EC2 that were opted in are : {self._aws_regions}')
-
         if self.allowed_regions:
             self._aws_regions = set(self._aws_regions).intersection(set(self.allowed_regions))
             self._logger.debug(f'Working on allowed regions {self._aws_regions}')
