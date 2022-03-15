@@ -110,6 +110,11 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
         return self._query_filter
 
     @property
+    def matching_frameworks(self):
+        """The frameworks provided to match the findings of."""
+        return self._frameworks
+
+    @property
     def landing_zone(self):
         """Landing zone."""
         return self._landing_zone
