@@ -106,32 +106,15 @@ class SecurityHub(SecurityHubToMock):
 class EnergyLabeler(EnergyLabelerToMock):
     """Energy labeler mock."""
 
-    def __init__(self,
-                 landing_zone_name,
-                 region=None,
-                 account_thresholds=ACCOUNT_THRESHOLDS,
-                 landing_zone_thresholds=LANDING_ZONE_THRESHOLDS,
-                 security_hub_filter=DEFAULT_SECURITY_HUB_FILTER,
-                 frameworks=DEFAULT_SECURITY_HUB_FRAMEWORKS,
-                 allowed_account_ids=None,
-                 denied_account_ids=None,
-                 allowed_regions=None,
-                 denied_regions=None):
-        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self.account_thresholds = account_thresholds_schema.validate(account_thresholds)
-        self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
-        self._security_hub_filter = security_hub_filter
-        self._frameworks = SecurityHub.validate_frameworks(frameworks)
-        self._landing_zone = LandingZone(landing_zone_name,
-                                         self.landing_zone_thresholds,
-                                         self.account_thresholds,
-                                         allowed_account_ids,
-                                         denied_account_ids)
-        self._security_hub = SecurityHub(region=region,
-                                         allowed_regions=allowed_regions,
-                                         denied_regions=denied_regions)
-        self._account_labels_counter = None
-        self._query_filter = None
-        self._landing_zone_energy_label = None
-        self._labeled_accounts_energy_label = None
-        self._landing_zone_labeled_accounts = None
+    def _initialize_landing_zone(self, name, allowed_account_ids, denied_account_ids):
+        return LandingZone(name,
+                           self.landing_zone_thresholds,
+                           self.account_thresholds,
+                           allowed_account_ids,
+                           denied_account_ids)
+
+    @staticmethod
+    def _initialize_security_hub(region, allowed_regions, denied_regions):
+        return SecurityHub(region=region,
+                           allowed_regions=allowed_regions,
+                           denied_regions=denied_regions)
