@@ -112,3 +112,9 @@ History
 ------------------
 
 * Cached some calculations to prevent duplications and standardized on default labels with properly retrieved values.
+
+
+1.1.0 (17-03-2022)
+------------------
+
+* Implemented client side finding filtering.
