@@ -34,18 +34,13 @@ mocks
 
 import json
 import logging
-
-from awsenergylabelerlib.configuration import (ACCOUNT_THRESHOLDS,
-                                               LANDING_ZONE_THRESHOLDS,
-                                               DEFAULT_SECURITY_HUB_FILTER,
-                                               DEFAULT_SECURITY_HUB_FRAMEWORKS)
-from awsenergylabelerlib.schemas import account_thresholds_schema, landing_zone_thresholds_schema
+from datetime import datetime
 
 from awsenergylabelerlib import AwsAccount
-from awsenergylabelerlib.entities import Finding
 from awsenergylabelerlib import EnergyLabeler as EnergyLabelerToMock
 from awsenergylabelerlib import LandingZone as LandingZoneToMock
 from awsenergylabelerlib import SecurityHub as SecurityHubToMock
+from awsenergylabelerlib.entities import Finding
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -56,7 +51,6 @@ __license__ = '''MIT'''
 __maintainer__ = '''Costas Tyfoxylos'''
 __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
-
 
 LOGGER_BASENAME = '''mocks'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
@@ -75,6 +69,20 @@ class LandingZone(LandingZoneToMock):
             accounts_data = json.loads(ifile.read())
         return [AwsAccount(account.get('id'), account.get('name'), self.account_thresholds)
                 for account in accounts_data]
+
+
+def adjust_datetime_offset_to_now(finding):
+    offset = finding.updated_at - finding.created_at
+    now = datetime.now()
+    now_text = now.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    adjusted_creation_date = now - offset
+    adjusted_creation_date_text = adjusted_creation_date.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    payload = {'CreatedAt': adjusted_creation_date_text,
+               'FirstObservedAt': adjusted_creation_date_text,
+               'LastObservedAt': now_text,
+               'UpdatedAt': now_text}
+    finding._data.update(payload)
+    return finding
 
 
 class SecurityHub(SecurityHubToMock):
@@ -100,7 +108,8 @@ class SecurityHub(SecurityHubToMock):
 
     def get_findings(self, query_filter):
         with open('tests/fixtures/findings.json') as ifile:
-            return [Finding(data) for data in json.loads(ifile.read())]
+            return [adjust_datetime_offset_to_now(Finding(data))
+                    for data in json.loads(ifile.read())]
 
 
 class EnergyLabeler(EnergyLabelerToMock):
