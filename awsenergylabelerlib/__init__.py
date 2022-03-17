@@ -41,7 +41,8 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             NoAccess,
                                             NoRegion,
                                             AccountsNotPartOfLandingZone,
-                                            UnableToRetrieveSecurityHubRegions)
+                                            UnableToRetrieveSecurityHubRegions,
+                                            InvalidRegion)
 from .configuration import (ALL_LANDING_ZONE_EXPORT_TYPES,
                             ALL_ACCOUNT_EXPORT_TYPES,
                             DATA_EXPORT_TYPES,
@@ -88,6 +89,7 @@ assert NoAccess
 assert NoRegion
 assert AccountsNotPartOfLandingZone
 assert UnableToRetrieveSecurityHubRegions
+assert InvalidRegion
 
 assert ALL_LANDING_ZONE_EXPORT_TYPES
 assert ALL_ACCOUNT_EXPORT_TYPES

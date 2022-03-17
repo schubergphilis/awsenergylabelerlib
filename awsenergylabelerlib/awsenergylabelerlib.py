@@ -79,19 +79,26 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
         self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
         self._security_hub_filter = security_hub_filter
         self._frameworks = SecurityHub.validate_frameworks(frameworks)
-        self._landing_zone = LandingZone(landing_zone_name,
-                                         self.landing_zone_thresholds,
-                                         self.account_thresholds,
-                                         allowed_account_ids,
-                                         denied_account_ids)
-        self._security_hub = SecurityHub(region=region,
-                                         allowed_regions=allowed_regions,
-                                         denied_regions=denied_regions)
+        self._landing_zone = self._initialize_landing_zone(landing_zone_name, allowed_account_ids, denied_account_ids)
+        self._security_hub = self._initialize_security_hub(region, allowed_regions, denied_regions)
         self._account_labels_counter = None
         self._query_filter = None
         self._landing_zone_energy_label = None
         self._labeled_accounts_energy_label = None
         self._landing_zone_labeled_accounts = None
+
+    def _initialize_landing_zone(self, name, allowed_account_ids, denied_account_ids):
+        return LandingZone(name,
+                           self.landing_zone_thresholds,
+                           self.account_thresholds,
+                           allowed_account_ids,
+                           denied_account_ids)
+
+    @staticmethod
+    def _initialize_security_hub(region, allowed_regions, denied_regions):
+        return SecurityHub(region=region,
+                           allowed_regions=allowed_regions,
+                           denied_regions=denied_regions)
 
     @property
     def initialized_security_hub_query_filter(self):

@@ -55,7 +55,8 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             NoAccess,
                                             NoRegion,
                                             AccountsNotPartOfLandingZone,
-                                            InvalidPath)
+                                            InvalidPath,
+                                            InvalidRegion)
 from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             LANDING_ZONE_THRESHOLDS,
@@ -581,13 +582,26 @@ class SecurityHub:
     def __init__(self, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.allowed_regions, self.denied_regions = validate_allowed_denied_regions(allowed_regions, denied_regions)
-        self.sts = boto3.client('sts')
-        self.ec2 = self._get_client(region)
+        self.sts = self._get_sts_client()
+        self.ec2 = self._get_ec2_client(region)
         self._aws_regions = None
-        self.aws_region = region if region in self.regions else self.sts._client_config.region_name  # noqa
+        self.aws_region = self._validate_region(region) or self._sts_client_config_region
+
+    def _validate_region(self, region):
+        if any([not region, region in self.regions]):
+            return region
+        raise InvalidRegion(region)
+
+    @property
+    def _sts_client_config_region(self):
+        return self.sts._client_config.region_name  # noqa
 
     @staticmethod
-    def _get_client(region):
+    def _get_sts_client():
+        return boto3.client('sts')
+
+    @staticmethod
+    def _get_ec2_client(region):
         kwargs = {}
         if region:
             config = Config(region_name=region)
@@ -603,15 +617,17 @@ class SecurityHub:
             raise InvalidOrNoCredentials(msg) from None
         return client
 
+    def _describe_ec2_regions(self):
+        return self.ec2.describe_regions().get('Regions')
+
     @property
     def regions(self):
         """Regions."""
         if self._aws_regions is None:
             self._aws_regions = [region.get('RegionName')
-                                 for region in self.ec2.describe_regions().get('Regions')
+                                 for region in self._describe_ec2_regions()
                                  if not region.get('OptInStatus', '') == 'not-opted-in']
             self._logger.debug(f'Regions in EC2 that were opted in are : {self._aws_regions}')
-
         if self.allowed_regions:
             self._aws_regions = set(self._aws_regions).intersection(set(self.allowed_regions))
             self._logger.debug(f'Working on allowed regions {self._aws_regions}')

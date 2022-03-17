@@ -70,6 +70,10 @@ class NoRegion(Exception):
     """No region is set on the environment or provided to the library."""
 
 
+class InvalidRegion(Exception):
+    """The region provided is not valid."""
+
+
 class AccountsNotPartOfLandingZone(Exception):
     """If accounts ids are provided but are not part of the landing zone."""
 
