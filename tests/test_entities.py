@@ -35,7 +35,9 @@ Tests for `entities` module.
 
 import unittest
 from .mocks import LandingZone
-from awsenergylabelerlib import MutuallyExclusiveArguments
+from awsenergylabelerlib import LandingZone as LandingZoneUnPatched
+from awsenergylabelerlib import (AccountsNotPartOfLandingZone,
+                                 InvalidOrNoCredentials)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -48,9 +50,42 @@ __email__ = '''<ctyfoxylos@schubergphilis.com>'''
 __status__ = '''Development'''  # "Prototype", "Development", "Production".
 
 
-class TestEntities(unittest.TestCase):
+class TestLandingZone(unittest.TestCase):
 
-    def test_landing_zone(self):
-        with self.assertRaises(MutuallyExclusiveArguments):
-            landing_zone = LandingZone('TEST', allowed_account_ids=['1'], denied_account_ids=['2'])
+    def test_instantiation(self):
+        with self.assertRaises(AccountsNotPartOfLandingZone):
+            LandingZone('TEST', allowed_account_ids=['123456789123'])
+        with self.assertRaises(AccountsNotPartOfLandingZone):
+            LandingZone('TEST', denied_account_ids=['123456789123'])
+        self.assertTrue(str(LandingZone('TEST')) == 'TEST landing zone')
 
+    def test_no_credentials(self):
+        import os
+        os.environ = {}
+        with self.assertRaises(InvalidOrNoCredentials):
+            LandingZoneUnPatched('TEST')
+
+    def test_allowed_accounts(self):
+        allowed_account_id = '100000000001'
+        landing_zone = LandingZone('TEST', allowed_account_ids=[allowed_account_id])
+        allowed_accounts = landing_zone.get_allowed_accounts()
+        self.assertTrue(len(allowed_accounts) == 1)
+        self.assertTrue(allowed_accounts[0].id == allowed_account_id)
+        allowed_account_ids = ['100000000001', '100000000002', '100000000003']
+        landing_zone = LandingZone('TEST', allowed_account_ids=allowed_account_ids)
+        allowed_accounts = landing_zone.get_allowed_accounts()
+        self.assertTrue(len(allowed_accounts) == len(allowed_account_ids))
+        self.assertTrue(sorted([account.id for account in allowed_accounts]) == allowed_account_ids)
+
+    def test_denied_accounts(self):
+        denied_account_id = '100000000001'
+        landing_zone = LandingZone('TEST', denied_account_ids=[denied_account_id])
+        accounts = landing_zone.get_not_denied_accounts()
+        self.assertTrue(len(accounts) == len(landing_zone.accounts) - 1)
+        self.assertTrue(denied_account_id not in [account.id for account in accounts])
+        denied_account_ids = ['100000000001', '100000000002', '100000000003']
+        landing_zone = LandingZone('TEST', denied_account_ids=denied_account_ids)
+        accounts = landing_zone.get_not_denied_accounts()
+        self.assertTrue(len(accounts) == len(landing_zone.accounts) - len(denied_account_ids))
+        account_ids = [account.id for account in accounts]
+        self.assertTrue(set(denied_account_id) - set(account_ids) == set(denied_account_id))
