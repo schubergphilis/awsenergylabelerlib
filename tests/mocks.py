@@ -108,8 +108,19 @@ class SecurityHub(SecurityHubToMock):
 
     def get_findings(self, query_filter):
         with open('tests/fixtures/findings.json') as ifile:
-            return [adjust_datetime_offset_to_now(Finding(data))
-                    for data in json.loads(ifile.read())]
+            all_findings = [adjust_datetime_offset_to_now(Finding(data))
+                            for data in json.loads(ifile.read())]
+        accounts_to_filter = query_filter.get('AwsAccountId')
+        if not accounts_to_filter:
+            return all_findings
+        account_ids_to_keep = [account.get('Value') for account in accounts_to_filter
+                               if account.get('Comparison') == 'EQUALS']
+        account_ids_to_discard = [account.get('Value') for account in accounts_to_filter
+                                  if account.get('Comparison') == 'NOT_EQUALS']
+        account_matching_findings = [finding for finding in all_findings
+                                     if all([finding.aws_account_id in account_ids_to_keep,
+                                             finding.aws_account_id not in account_ids_to_discard])]
+        return account_matching_findings
 
 
 class EnergyLabeler(EnergyLabelerToMock):
