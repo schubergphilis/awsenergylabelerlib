@@ -813,11 +813,11 @@ class DataExporter:  # pylint: disable=too-few-public-methods
         s3 = boto3.client('s3')  # pylint: disable=invalid-name
         parsed_url = urlparse(s3_url)
         bucket_name = parsed_url.netloc
-        dst_path = parsed_url.path
+        dst_path = f"{parsed_url.path}{datetime.now().year}/{datetime.now().month}/{datetime.now().day}/"
         with tempfile.NamedTemporaryFile() as temp_file:
             temp_file.write(data.encode('utf-8'))
             temp_file.flush()
-            dst_filename = urljoin(dst_path, filename)
+            dst_filename = urljoin(dst_path, filename).lstrip("/")
             s3.upload_file(temp_file.name, bucket_name, dst_filename)
             temp_file.close()
         self._logger.info(f'File {filename} copied to {s3_url}')
