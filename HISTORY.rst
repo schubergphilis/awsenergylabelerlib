@@ -118,3 +118,9 @@ History
 ------------------
 
 * Implemented client side finding filtering.
+
+
+1.1.1 (19-05-2022)
+------------------
+
+* Fix to strip leading slash in S3 destination path
