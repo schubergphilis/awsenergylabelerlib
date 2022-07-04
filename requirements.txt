@@ -12,3 +12,4 @@ schema~=0.7.5
 pandas~=1.3.5
 cachetools~=4.2.4
 opnieuw~=1.1.0
+numpy~=1.21.6
