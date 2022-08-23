@@ -141,7 +141,7 @@ FILE_EXPORT_TYPES = [
      'object_type': SecurityHubFindingsData,
      'required_arguments': ['security_hub_findings']},
     {'type': 'findings_resources',
-     'filename': 'security-hub-findings.json',
+     'filename': 'security-hub-findings-resources.json',
      'object_type': SecurityHubFindingsResourcesData,
      'required_arguments': ['security_hub_findings']},
     {'type': 'findings_types',
