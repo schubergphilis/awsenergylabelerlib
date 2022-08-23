@@ -124,3 +124,9 @@ History
 ------------------
 
 * Fix to strip leading slash in S3 destination path
+
+
+1.1.2 (23-08-2022)
+------------------
+
+* Fix bug related to exporting resources data
