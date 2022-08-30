@@ -62,7 +62,7 @@ class AggregateEnergyLabel:
 class AggregateAccountsEnergyLabel(AggregateEnergyLabel):
     """Models an energy label averaging multiple accounts."""
 
-    accounts_measured: str
+    accounts_measured: int
 
 
 @dataclass
