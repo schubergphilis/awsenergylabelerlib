@@ -34,6 +34,7 @@ Import all parts from entities here
 
 import logging
 import tempfile
+import re
 from collections import Counter
 from copy import copy, deepcopy
 from dataclasses import dataclass
@@ -647,14 +648,23 @@ class SecurityHub:
             frameworks: One or more of the frameworks to validate according to an accepted list.
 
         Returns:
-            True if frameworks are valid False otherwise.
+            A list of valid frameworks.
+
+        Raises:
+            InvalidFrameworks: If the frameworks provided are not valid for Security Hub.
 
         """
-        if not isinstance(frameworks, (list, tuple, set)):
-            frameworks = [frameworks]
-        if set(frameworks).issubset(SecurityHub.frameworks):
-            return frameworks
-        raise InvalidFrameworks(frameworks)
+        if not isinstance(frameworks, (list, tuple, set, str)):
+            raise InvalidFrameworks(frameworks)
+            
+        if isinstance(frameworks, str):
+            frameworks = [frameworks] if set(frameworks).issubset(SecurityHub.frameworks) else re.split(r'\s', frameworks)
+
+        invalid_frameworks = set(frameworks) - set(SecurityHub.frameworks)
+        if invalid_frameworks:
+            raise InvalidFrameworks(invalid_frameworks)
+        
+        return frameworks
 
     def _get_aggregating_region(self):
         aggregating_region = None
