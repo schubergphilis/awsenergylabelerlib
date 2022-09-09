@@ -130,3 +130,9 @@ History
 ------------------
 
 * Fix bug related to exporting resources data
+
+
+1.2.0 (09-09-2022)
+------------------
+
+* Removed pandas dependency in favor of native python functionality.
