@@ -37,7 +37,9 @@ import unittest
 from awsenergylabelerlib import (is_valid_account_id,
                                  are_valid_account_ids,
                                  validate_account_ids,
-                                 InvalidAccountListProvided)
+                                 validate_allowed_denied_account_ids,
+                                 InvalidAccountListProvided,
+                                 MutuallyExclusiveArguments)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -91,3 +93,20 @@ class TestValidations(unittest.TestCase):
             validate_account_ids(['12345678912', '2234567891232'])
         with self.assertRaises(InvalidAccountListProvided):
             validate_account_ids(['1234567891a2', '223456789123'])
+
+    def test_allowed_denied_account_ids(self):
+        self.assertEqual([[], []], validate_allowed_denied_account_ids(None, None))
+        self.assertTrue((['123456789123'], []), validate_allowed_denied_account_ids('123456789123'))
+        self.assertTrue((['123456789123'], []), validate_allowed_denied_account_ids(allowed_account_ids='123456789123'))
+        self.assertTrue(([], ['123456789123']), validate_allowed_denied_account_ids(denied_account_ids='123456789123'))
+        self.assertTrue((['123456789123'], []), validate_allowed_denied_account_ids('123456789123', None))
+        self.assertTrue((['123456789123'], []), validate_allowed_denied_account_ids(['123456789123'], []))
+        self.assertTrue(([], ['123456789123']), validate_allowed_denied_account_ids([], ['123456789123']))
+        with self.assertRaises(MutuallyExclusiveArguments):
+            validate_allowed_denied_account_ids(['123456789123'], ['123456789124'])
+        with self.assertRaises(MutuallyExclusiveArguments):
+            validate_allowed_denied_account_ids(['123456789123'], ['123456789124'])
+        with self.assertRaises(InvalidAccountListProvided):
+            validate_allowed_denied_account_ids(['1234567823'], [])
+        with self.assertRaises(InvalidAccountListProvided):
+            validate_allowed_denied_account_ids([], ['1234567823'])
