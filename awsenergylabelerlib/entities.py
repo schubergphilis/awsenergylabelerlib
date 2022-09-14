@@ -89,85 +89,18 @@ class Zone:  # pylint: disable=too-many-instance-attributes
                  allowed_account_ids=None,
                  denied_account_ids=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self.organizations = self._get_client()
         self.name = name
         self.thresholds = thresholds
         self.account_thresholds = account_thresholds
-        account_ids = [account.id for account in self.accounts]
-        allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
-                                                                                      denied_account_ids)
-        self.allowed_account_ids = self._validate_landing_zone_account_ids(allowed_account_ids, account_ids)
-        self.denied_account_ids = self._validate_landing_zone_account_ids(denied_account_ids, account_ids)
+        self.allowed_account_ids, self.denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
+                                                                                                denied_account_ids)
         self._accounts_to_be_labeled = None
         self._targeted_accounts_energy_label = None
 
-    @staticmethod
-    def _validate_landing_zone_account_ids(account_ids, landing_zone_account_ids):
-        """Validates that a provided list of valid AWS account ids are actually part of the landing zone.
-
-        Args:
-            account_ids: A list of valid AWS account ids.
-            landing_zone_account_ids: All the landing zone account ids.
-
-        Returns:
-            account_ids (list): A list of account ids that are part of the landing zone.
-
-        Raises:
-            AccountsNotPartOfLandingZone: If account ids are not part of the current landing zone.
-
-        """
-        accounts_not_in_landing_zone = set(account_ids) - set(landing_zone_account_ids)
-        if accounts_not_in_landing_zone:
-            raise AccountsNotPartOfLandingZone(f'The following account ids provided are not part of the landing zone :'
-                                               f' {accounts_not_in_landing_zone}')
-        return account_ids
-
-    @staticmethod
-    def _get_client():
-        """Provides the client to organizations.
-
-        Returns:
-            boto3 organizations client
-
-        Raises:
-            InvalidOrNoCredentials if credentials are not provided or are insufficient.
-
-        """
-        try:
-            client = boto3.client('organizations')
-            client.describe_organization()
-        except (botocore.exceptions.NoCredentialsError,
-                client.exceptions.AccessDeniedException,  # noqa
-                botocore.exceptions.ClientError) as msg:
-            raise InvalidOrNoCredentials(msg) from None
-        return client
 
     def __repr__(self):
-        return f'{self.name} landing zone'
+        return f'{self.name} zone'
 
-    @property
-    @cached(cache=TTLCache(maxsize=1000, ttl=600))
-    def accounts(self):
-        """Accounts of the landing zone.
-
-        Returns:
-            List of accounts retrieved
-
-        Raises:
-            NoAccess: If insufficient access from credentials.
-
-        """
-        aws_accounts = []
-        paginator = self.organizations.get_paginator('list_accounts')
-        iterator = paginator.paginate()
-        try:
-            for page in iterator:
-                for account in page['Accounts']:
-                    account = AwsAccount(account.get('Id'), account.get('Name'), self.account_thresholds)
-                    aws_accounts.append(account)
-            return aws_accounts
-        except self.organizations.exceptions.AccessDeniedException as msg:
-            raise NoAccess(msg) from None
 
     def get_allowed_accounts(self):
         """Retrieves allowed accounts based on an allow list.
@@ -198,7 +131,7 @@ class Zone:  # pylint: disable=too-many-instance-attributes
         if self._accounts_to_be_labeled is None:
             if self.allowed_account_ids:
                 self._logger.debug(f'Working on allow list {self.allowed_account_ids}')
-                self._accounts_to_be_labeled = self.get_allowed_accounts()
+                self._accounts_to_be_labeled = self.allowed_account_ids()
             elif self.denied_account_ids:
                 self._logger.debug(f'Working on deny list {self.denied_account_ids}')
                 self._accounts_to_be_labeled = self.get_not_denied_accounts()
@@ -284,28 +217,28 @@ class Zone:  # pylint: disable=too-many-instance-attributes
 
 
 
-class LandingZone:  # pylint: disable=too-many-instance-attributes
+class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
     """Models the landing zone and retrieves accounts from it."""
 
     # pylint: disable=too-many-arguments,dangerous-default-value
+    
+    
     def __init__(self,
                  name,
-                 thresholds=LANDING_ZONE_THRESHOLDS,
-                 account_thresholds=ACCOUNT_THRESHOLDS,
                  allowed_account_ids=None,
                  denied_account_ids=None):
-        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        super().__init__(name, 
+                         thresholds=LANDING_ZONE_THRESHOLDS, 
+                         account_thresholds=ACCOUNT_THRESHOLDS,
+                         allowed_account_ids=None,
+                         denied_account_ids=None)
         self.organizations = self._get_client()
-        self.name = name
-        self.thresholds = thresholds
-        self.account_thresholds = account_thresholds
         account_ids = [account.id for account in self.accounts]
         allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
                                                                                       denied_account_ids)
         self.allowed_account_ids = self._validate_landing_zone_account_ids(allowed_account_ids, account_ids)
         self.denied_account_ids = self._validate_landing_zone_account_ids(denied_account_ids, account_ids)
-        self._accounts_to_be_labeled = None
-        self._targeted_accounts_energy_label = None
+
 
     @staticmethod
     def _validate_landing_zone_account_ids(account_ids, landing_zone_account_ids):
