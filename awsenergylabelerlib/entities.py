@@ -514,12 +514,18 @@ class Finding:  # pylint: disable=too-many-public-methods
     @property
     def first_observed_at(self):
         """First observed at."""
-        return self._parse_date_time(self._data.get('FirstObservedAt'))
+        if self._data.get('FirstObservedAt') != None:
+            return self._parse_date_time(self._data.get('FirstObservedAt'))
+        else:
+            return self._parse_date_time(self._data.get('CreatedAt'))
 
     @property
     def last_observed_at(self):
         """Last observed at."""
-        return self._parse_date_time(self._data.get('LastObservedAt'))
+        if self._data.get('LastObservedAt') != None:
+            return self._parse_date_time(self._data.get('LastObservedAt')) 
+        else:
+            return self._parse_date_time(self._data.get('UpdatedAt'))
 
     @property
     def created_at(self):
