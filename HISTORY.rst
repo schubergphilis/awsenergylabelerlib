@@ -143,3 +143,10 @@ History
 
 * Fixed timestamp bug
 * Fixed bug where accounts without findings got an F
+
+
+1.2.2 (26-09-2022)
+------------------
+
+* Fixed timestamp bug
+* Fixed bug where accounts without findings got an F
