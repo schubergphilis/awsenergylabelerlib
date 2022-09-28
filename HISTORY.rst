@@ -136,3 +136,17 @@ History
 ------------------
 
 * Removed pandas dependency in favor of native python functionality.
+
+
+1.2.1 (26-09-2022)
+------------------
+
+* Fixed timestamp bug
+* Fixed bug where accounts without findings got an F
+
+
+1.2.2 (26-09-2022)
+------------------
+
+* Fixed timestamp bug
+* Fixed bug where accounts without findings got an F

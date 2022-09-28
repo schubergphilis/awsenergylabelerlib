@@ -326,7 +326,8 @@ class AwsAccount:
                 open_days_counter[finding.days_open] += 1
         if not counted_findings:
             self._logger.info(f'No findings for account {self.id}')
-            return AccountEnergyLabel('A', 0, 0, 0, 0)
+            self.energy_label = AccountEnergyLabel('A', 0, 0, 0, 0)
+            return self.energy_label
         try:
             number_of_critical_findings = counted_findings.get('CRITICAL', 0)
             number_of_high_findings = counted_findings.get('HIGH', 0)
