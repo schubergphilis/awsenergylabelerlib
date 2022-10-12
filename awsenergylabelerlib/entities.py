@@ -44,11 +44,9 @@ from urllib.parse import urlparse, urljoin
 import boto3
 import botocore.errorfactory
 import botocore.exceptions
-import pandas as pd
 from botocore.config import Config
 from cachetools import cached, TTLCache
 from opnieuw import retry
-from pandas.core.frame import DataFrame
 
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
@@ -358,10 +356,9 @@ class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
         """
         labeled_accounts = []
         self._logger.debug('Calculating on security hub findings')
-        dataframe_measurements = pd.DataFrame([finding.measurement_data for finding in security_hub_findings])
         for account in self.accounts_to_be_labeled:
             self._logger.debug(f'Calculating energy label for account {account.id}')
-            account.calculate_energy_label(dataframe_measurements)
+            account.calculate_energy_label(security_hub_findings)
             labeled_accounts.append(account)
         return labeled_accounts
 
@@ -458,28 +455,27 @@ class AwsAccount:
             The energy label of the account based on the provided configuration.
 
         """
-        if not issubclass(DataFrame, type(findings)):
-            findings = pd.DataFrame([finding.measurement_data for finding in findings])
-        df = findings  # pylint: disable=invalid-name
-        try:
-            open_findings = df[(df['Account ID'] == self.id) & (df['Workflow State'] != 'RESOLVED')]
-        except KeyError:
+        counted_findings = Counter()
+        open_days_counter = Counter()
+        for finding in findings:
+            if all([finding.aws_account_id == self.id,
+                    finding.workflow_status != 'RESOLVED']):
+                counted_findings[finding.severity] += 1
+                open_days_counter[finding.days_open] += 1
+        if not counted_findings:
             self._logger.info(f'No findings for account {self.id}')
             self.energy_label = AccountEnergyLabel('A', 0, 0, 0, 0)
             return self.energy_label
         try:
-            number_of_critical_findings = open_findings[open_findings['Severity'] == 'CRITICAL'].shape[0]
-            number_of_high_findings = open_findings[open_findings['Severity'] == 'HIGH'].shape[0]
+            number_of_critical_findings = counted_findings.get('CRITICAL', 0)
+            number_of_high_findings = counted_findings.get('HIGH', 0)
             number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
-            number_of_medium_findings = open_findings[open_findings['Severity'] == 'MEDIUM'].shape[0]
-            number_of_low_findings = open_findings[open_findings['Severity'] == 'LOW'].shape[0]
-            open_findings_low_or_higher = open_findings[(open_findings['Severity'] == 'LOW') |
-                                                        (open_findings['Severity'] == 'MEDIUM') |
-                                                        (open_findings['Severity'] == 'HIGH') |
-                                                        (open_findings['Severity'] == 'CRITICAL')]
-            max_days_open = max(open_findings_low_or_higher['Days Open']) \
-                if open_findings_low_or_higher['Days Open'].shape[0] > 0 else 0
-
+            number_of_medium_findings = counted_findings.get('MEDIUM', 0)
+            number_of_low_findings = counted_findings.get('LOW', 0)
+            try:
+                max_days_open = max(open_days_counter)
+            except ValueError:
+                max_days_open = 0
             self._logger.debug(f'Calculating for account {self.id} '
                                f'with number of critical+high findings '
                                f'{number_of_critical_high_findings}, '
@@ -657,11 +653,15 @@ class Finding:  # pylint: disable=too-many-public-methods
     @property
     def first_observed_at(self):
         """First observed at."""
+        if self._data.get('FirstObservedAt') is None:
+            return self._parse_date_time(self._data.get('CreatedAt'))
         return self._parse_date_time(self._data.get('FirstObservedAt'))
 
     @property
     def last_observed_at(self):
         """Last observed at."""
+        if self._data.get('LastObservedAt') is None:
+            return self._parse_date_time(self._data.get('UpdatedAt'))
         return self._parse_date_time(self._data.get('LastObservedAt'))
 
     @property

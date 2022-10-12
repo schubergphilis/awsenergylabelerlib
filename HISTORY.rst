@@ -124,3 +124,29 @@ History
 ------------------
 
 * Fix to strip leading slash in S3 destination path
+
+
+1.1.2 (23-08-2022)
+------------------
+
+* Fix bug related to exporting resources data
+
+
+1.2.0 (09-09-2022)
+------------------
+
+* Removed pandas dependency in favor of native python functionality.
+
+
+1.2.1 (26-09-2022)
+------------------
+
+* Fixed timestamp bug
+* Fixed bug where accounts without findings got an F
+
+
+1.2.2 (26-09-2022)
+------------------
+
+* Fixed timestamp bug
+* Fixed bug where accounts without findings got an F
