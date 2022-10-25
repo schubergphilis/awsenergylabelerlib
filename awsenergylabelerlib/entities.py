@@ -304,7 +304,8 @@ class AwsAccount:
             except IndexError:
                 LOGGER.debug(f'Alias for account {self.id} is not set.')
             except botocore.exceptions.ClientError as msg:
-                LOGGER.error(f'Alias for account {self.id} could not be retrieved with message {msg}.')
+                LOGGER.warning(f'Alias for account {self.id} could not be retrieved with message {msg}, '
+                               f'no alias will be set.')
         return self._alias
 
     def calculate_energy_label(self, findings):
