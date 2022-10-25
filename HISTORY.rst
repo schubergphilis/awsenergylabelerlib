@@ -150,3 +150,9 @@ History
 
 * Fixed timestamp bug
 * Fixed bug where accounts without findings got an F
+
+
+2.0.0 (25-10-2022)
+------------------
+
+* Removed "CIS" from default frameworks, fixed a bug with required region for security hub service.
