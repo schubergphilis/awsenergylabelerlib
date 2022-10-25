@@ -612,7 +612,7 @@ class SecurityHub:
         except (botocore.exceptions.NoRegionError,
                 botocore.exceptions.InvalidRegionError,
                 botocore.exceptions.EndpointConnectionError) as msg:
-            raise NoRegion(msg) from None
+            raise NoRegion(f'Ec2 client requires a valid region set to connect, message was:{msg}') from None
         except (botocore.exceptions.ClientError, botocore.exceptions.NoCredentialsError) as msg:
             raise InvalidOrNoCredentials(msg) from None
         return client
@@ -626,7 +626,7 @@ class SecurityHub:
         if self._aws_regions is None:
             self._aws_regions = [region.get('RegionName')
                                  for region in self._describe_ec2_regions()
-                                 if not region.get('OptInStatus', '') == 'not-opted-in']
+                                 if region.get('OptInStatus', '') != 'not-opted-in']
             self._logger.debug(f'Regions in EC2 that were opted in are : {self._aws_regions}')
         if self.allowed_regions:
             self._aws_regions = set(self._aws_regions).intersection(set(self.allowed_regions))
@@ -658,11 +658,16 @@ class SecurityHub:
 
     def _get_aggregating_region(self):
         aggregating_region = None
-        client = boto3.client('securityhub')
         try:
+            config = Config(region_name=self.aws_region)
+            kwargs = dict(config=config)
+            client = boto3.client('securityhub', **kwargs)
             data = client.list_finding_aggregators()
             aggregating_region = data.get('FindingAggregators')[0].get('FindingAggregatorArn').split(':')[3]
             self._logger.info(f'Found aggregating region {aggregating_region}')
+        except (botocore.exceptions.NoRegionError,
+                botocore.exceptions.InvalidRegionError) as msg:
+            raise NoRegion(f'Security Hub client requires a valid region set to connect, message was:{msg}') from None
         except (IndexError, botocore.exceptions.ClientError):
             self._logger.debug('Could not get aggregating region, either not set, or a client error')
         return aggregating_region
