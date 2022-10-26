@@ -35,10 +35,10 @@ import logging
 
 from cachetools import cached, TTLCache
 from .configuration import (ACCOUNT_THRESHOLDS,
-                            LANDING_ZONE_THRESHOLDS,
+                            ZONE_THRESHOLDS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             DEFAULT_SECURITY_HUB_FRAMEWORKS)
-from .entities import SecurityHub, LandingZone
+from .entities import SecurityHub, Zone, LandingZone
 from .schemas import account_thresholds_schema, landing_zone_thresholds_schema
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
@@ -73,19 +73,21 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                  allowed_account_ids=None,
                  denied_account_ids=None,
                  allowed_regions=None,
-                 denied_regions=None):
+                 denied_regions=None,
+                 zone_type="landing_zone"):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
         self.account_thresholds = account_thresholds_schema.validate(account_thresholds)
         self.landing_zone_thresholds = landing_zone_thresholds_schema.validate(landing_zone_thresholds)
         self._security_hub_filter = security_hub_filter
         self._frameworks = SecurityHub.validate_frameworks(frameworks)
-        self._landing_zone = self._initialize_landing_zone(landing_zone_name, allowed_account_ids, denied_account_ids)
         self._security_hub = self._initialize_security_hub(region, allowed_regions, denied_regions)
         self._account_labels_counter = None
         self._query_filter = None
         self._landing_zone_energy_label = None
         self._labeled_accounts_energy_label = None
         self._landing_zone_labeled_accounts = None
+        self._landing_zone = self._initialize_landing_zone(landing_zone_name, allowed_account_ids, denied_account_ids) if zone_type == "landing_zone" else None
+        self._zone = self._initialize_zone(landing_zone_name, allowed_account_ids, denied_account_ids) if zone_type == "zone" else None
 
     def _initialize_landing_zone(self, name, allowed_account_ids, denied_account_ids):
         return LandingZone(name,
@@ -93,6 +95,13 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
                            self.account_thresholds,
                            allowed_account_ids,
                            denied_account_ids)
+
+    def _initialize_zone(self, name, allowed_account_ids, denied_account_ids):
+        return Zone(name,
+                    self.landing_zone_thresholds,
+                    self.account_thresholds,
+                    allowed_account_ids,
+                    denied_account_ids)
 
     @staticmethod
     def _initialize_security_hub(region, allowed_regions, denied_regions):
@@ -125,6 +134,11 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
     def landing_zone(self):
         """Landing zone."""
         return self._landing_zone
+
+    @property
+    def zone(self):
+        """Zone."""
+        return self._zone
 
     @property
     def security_hub(self):

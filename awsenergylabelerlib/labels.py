@@ -66,8 +66,8 @@ class AggregateAccountsEnergyLabel(AggregateEnergyLabel):
 
 
 @dataclass
-class LandingZoneEnergyLabel(AggregateEnergyLabel):
-    """Models the landing zone energy label."""
+class ZoneEnergyLabel(AggregateEnergyLabel):
+    """Models the zone energy label."""
 
     coverage: str
 

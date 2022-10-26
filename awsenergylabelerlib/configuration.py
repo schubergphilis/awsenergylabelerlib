@@ -84,16 +84,16 @@ ACCOUNT_THRESHOLDS = [{'label': 'A',
                        'low': 100,
                        'days_open_less_than': 999}]
 
-LANDING_ZONE_THRESHOLDS = [{'label': 'A',
-                            'percentage': 90},
-                           {'label': 'B',
-                            'percentage': 70},
-                           {'label': 'C',
-                            'percentage': 50},
-                           {'label': 'D',
-                            'percentage': 30},
-                           {'label': 'E',
-                            'percentage': 20}]
+ZONE_THRESHOLDS = [{'label': 'A',
+                    'percentage': 90},
+                   {'label': 'B',
+                     'percentage': 70},
+                   {'label': 'C', 
+                    'percentage': 50},
+                   {'label': 'D',
+                    'percentage': 30},
+                   {'label': 'E',
+                    'percentage': 20}]
 
 DEFAULT_SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
                                                             'Unit': 'DAYS'}}],

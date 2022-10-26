@@ -34,6 +34,7 @@ Import all parts from entities here
 
 import logging
 import tempfile
+from abc import ABC, abstractmethod
 from collections import Counter
 from copy import copy, deepcopy
 from dataclasses import dataclass
@@ -52,12 +53,12 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             NoAccess,
                                             NoRegion,
-                                            AccountsNotPartOfLandingZone,
+                                            AccountsNotPartOfZone,
                                             InvalidPath,
                                             InvalidRegion)
 from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
-                            LANDING_ZONE_THRESHOLDS,
+                            ZONE_THRESHOLDS,
                             ACCOUNT_THRESHOLDS,
                             FILE_EXPORT_TYPES)
 from .labels import AccountEnergyLabel, AggregateAccountsEnergyLabel, LandingZoneEnergyLabel
@@ -76,146 +77,7 @@ LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
-class Zone:  # pylint: disable=too-many-instance-attributes
-    """Models a zone and retrieves accounts from it."""
-
-    # pylint: disable=too-many-arguments,dangerous-default-value
-    def __init__(self,
-                 name,
-                 thresholds=LANDING_ZONE_THRESHOLDS,
-                 account_thresholds=ACCOUNT_THRESHOLDS,
-                 allowed_account_ids=None,
-                 denied_account_ids=None):
-        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-        self.name = name
-        self.thresholds = thresholds
-        self.account_thresholds = account_thresholds
-        self.allowed_account_ids, self.denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
-                                                                                                denied_account_ids)
-        self._accounts_to_be_labeled = None
-        self._targeted_accounts_energy_label = None
-
-
-    def __repr__(self):
-        return f'{self.name} zone'
-
-
-    def get_allowed_accounts(self):
-        """Retrieves allowed accounts based on an allow list.
-
-        Returns:
-            The list of accounts based on the allowed list.
-
-        """
-        return [account for account in self.accounts if account.id in self.allowed_account_ids]
-
-    def get_not_denied_accounts(self):
-        """Retrieves allowed accounts based on an deny list.
-
-        Returns:
-            The list of accounts not on the deny list.
-
-        """
-        return [account for account in self.accounts if account.id not in self.denied_account_ids]
-
-    @property
-    def accounts_to_be_labeled(self):
-        """Account to be labeled according to the allow or deny list arguments.
-
-        Returns:
-            account (list): A list of accounts to be labeled.
-
-        """
-        if self._accounts_to_be_labeled is None:
-            if self.allowed_account_ids:
-                self._logger.debug(f'Working on allow list {self.allowed_account_ids}')
-                self._accounts_to_be_labeled = self.allowed_account_ids()
-            elif self.denied_account_ids:
-                self._logger.debug(f'Working on deny list {self.denied_account_ids}')
-                self._accounts_to_be_labeled = self.get_not_denied_accounts()
-            else:
-                self._logger.debug('Working on all landing zone accounts')
-                self._accounts_to_be_labeled = self.accounts
-        return self._accounts_to_be_labeled
-
-    def get_labeled_targeted_accounts(self, security_hub_findings):
-        """Labels the accounts based on the allow and deny list provided.
-
-        Args:
-            security_hub_findings: The findings for a landing zone.
-
-        Returns:
-            labeled_accounts (list): A list of AwsAccount objects that have their labels calculated.
-
-        """
-        labeled_accounts = []
-        self._logger.debug('Calculating on security hub findings')
-        dataframe_measurements = pd.DataFrame([finding.measurement_data for finding in security_hub_findings])
-        for account in self.accounts_to_be_labeled:
-            self._logger.debug(f'Calculating energy label for account {account.id}')
-            account.calculate_energy_label(dataframe_measurements)
-            labeled_accounts.append(account)
-        return labeled_accounts
-
-    def get_energy_label_of_targeted_accounts(self, security_hub_findings):
-        """Get the energy label of the targeted accounts.
-
-        Args:
-            security_hub_findings: The findings from security hub.
-
-        Returns:
-            energy_label (str): The energy label of the targeted accounts.
-
-        """
-        if self._targeted_accounts_energy_label is None:
-            labeled_accounts = self.get_labeled_targeted_accounts(security_hub_findings)
-            label_counter = Counter([account.energy_label.label for account in labeled_accounts])
-            number_of_accounts = len(labeled_accounts)
-            self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
-            account_sums = []
-            labels = []
-            for threshold in self.thresholds:
-                label = threshold.get('label')
-                percentage = threshold.get('percentage')
-                labels.append(label)
-                account_sums.append(label_counter.get(label, 0))
-                self._logger.debug(f'Calculating for labels {labels} with threshold {percentage} '
-                                   f'and sums of {account_sums}')
-                if sum(account_sums) / number_of_accounts * 100 >= percentage:
-                    self._logger.debug(f'Found a match with label {label}')
-                    self._targeted_accounts_energy_label = AggregateAccountsEnergyLabel(label,
-                                                                                        min(label_counter.keys()),
-                                                                                        max(label_counter.keys()),
-                                                                                        number_of_accounts)
-                    break
-            else:
-                self._logger.debug('Found no match with thresholds, using default worst label F.')
-                self._targeted_accounts_energy_label = AggregateAccountsEnergyLabel('F',
-                                                                                    min(label_counter.keys()),
-                                                                                    max(label_counter.keys()),
-                                                                                    number_of_accounts)
-        return self._targeted_accounts_energy_label
-
-    def get_energy_label(self, security_hub_findings):
-        """Calculates and returns the energy label of the Landing Zone.
-
-        Args:
-            security_hub_findings: The measurement data of all the findings for a landing zone.
-
-        Returns:
-            energy_label (LandingZoneEnergyLabel): The labeling object of the landing zone.
-
-        """
-        aggregate_label = self.get_energy_label_of_targeted_accounts(security_hub_findings)
-        coverage_percentage = len(self.accounts_to_be_labeled) / len(self.accounts) * 100
-        return LandingZoneEnergyLabel(aggregate_label.label,
-                                      best_label=aggregate_label.best_label,
-                                      worst_label=aggregate_label.worst_label,
-                                      coverage=f'{coverage_percentage:.2f}%')
-
-
-
-class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
+class Zone(ABC):  # pylint: disable=too-many-instance-attributes
     """Models the landing zone and retrieves accounts from it."""
 
     # pylint: disable=too-many-arguments,dangerous-default-value
@@ -224,87 +86,50 @@ class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
     def __init__(self,
                  name,
                  allowed_account_ids=None,
-                 denied_account_ids=None):
-        super().__init__(name, 
-                         thresholds=LANDING_ZONE_THRESHOLDS, 
-                         account_thresholds=ACCOUNT_THRESHOLDS,
-                         allowed_account_ids=None,
-                         denied_account_ids=None)
-        self.organizations = self._get_client()
+                 denied_account_ids=None,
+                 thresholds=ZONE_THRESHOLDS, 
+                 account_thresholds=ACCOUNT_THRESHOLDS):
         account_ids = [account.id for account in self.accounts]
         allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
                                                                                       denied_account_ids)
-        self.allowed_account_ids = self._validate_landing_zone_account_ids(allowed_account_ids, account_ids)
-        self.denied_account_ids = self._validate_landing_zone_account_ids(denied_account_ids, account_ids)
+        self.allowed_account_ids = self._validate_zone_account_ids(allowed_account_ids, account_ids)
+        self.denied_account_ids = self._validate_zone_account_ids(denied_account_ids, account_ids)
 
 
     @staticmethod
-    def _validate_landing_zone_account_ids(account_ids, landing_zone_account_ids):
-        """Validates that a provided list of valid AWS account ids are actually part of the landing zone.
+    def _validate_zone_account_ids(account_ids, zone_account_ids):
+        """Validates that a provided list of valid AWS account ids are actually part of the zone.
 
         Args:
             account_ids: A list of valid AWS account ids.
-            landing_zone_account_ids: All the landing zone account ids.
+            zone_account_ids: All the zone account ids.
 
         Returns:
-            account_ids (list): A list of account ids that are part of the landing zone.
+            account_ids (list): A list of account ids that are part of the zone.
 
         Raises:
-            AccountsNotPartOfLandingZone: If account ids are not part of the current landing zone.
+            AccountsNotPartOfZone: If account ids are not part of the current zone.
 
         """
-        accounts_not_in_landing_zone = set(account_ids) - set(landing_zone_account_ids)
-        if accounts_not_in_landing_zone:
-            raise AccountsNotPartOfLandingZone(f'The following account ids provided are not part of the landing zone :'
-                                               f' {accounts_not_in_landing_zone}')
+        accounts_not_in_zone = set(account_ids) - set(zone_account_ids)
+        if accounts_not_in_zone:
+            raise AccountsNotPartOfZone(f'The following account ids provided are not part of the zone :'
+                                               f' {accounts_not_in_zone}')
         return account_ids
 
+    @abstractmethod
     @staticmethod
     def _get_client():
-        """Provides the client to organizations.
-
-        Returns:
-            boto3 organizations client
-
-        Raises:
-            InvalidOrNoCredentials if credentials are not provided or are insufficient.
-
-        """
-        try:
-            client = boto3.client('organizations')
-            client.describe_organization()
-        except (botocore.exceptions.NoCredentialsError,
-                client.exceptions.AccessDeniedException,  # noqa
-                botocore.exceptions.ClientError) as msg:
-            raise InvalidOrNoCredentials(msg) from None
-        return client
+        raise NotImplemented
 
     def __repr__(self):
-        return f'{self.name} landing zone'
+        return f'{self.name} zone'
 
+    @abstractmethod
     @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
     def accounts(self):
-        """Accounts of the landing zone.
-
-        Returns:
-            List of accounts retrieved
-
-        Raises:
-            NoAccess: If insufficient access from credentials.
-
-        """
-        aws_accounts = []
-        paginator = self.organizations.get_paginator('list_accounts')
-        iterator = paginator.paginate()
-        try:
-            for page in iterator:
-                for account in page['Accounts']:
-                    account = AwsAccount(account.get('Id'), account.get('Name'), self.account_thresholds)
-                    aws_accounts.append(account)
-            return aws_accounts
-        except self.organizations.exceptions.AccessDeniedException as msg:
-            raise NoAccess(msg) from None
+        raise NotImplemented
 
     def get_allowed_accounts(self):
         """Retrieves allowed accounts based on an allow list.
@@ -340,7 +165,7 @@ class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
                 self._logger.debug(f'Working on deny list {self.denied_account_ids}')
                 self._accounts_to_be_labeled = self.get_not_denied_accounts()
             else:
-                self._logger.debug('Working on all landing zone accounts')
+                self._logger.debug('Working on all zone accounts')
                 self._accounts_to_be_labeled = self.accounts
         return self._accounts_to_be_labeled
 
@@ -348,7 +173,7 @@ class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
         """Labels the accounts based on the allow and deny list provided.
 
         Args:
-            security_hub_findings: The findings for a landing zone.
+            security_hub_findings: The findings for a zone.
 
         Returns:
             labeled_accounts (list): A list of AwsAccount objects that have their labels calculated.
@@ -402,30 +227,156 @@ class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
         return self._targeted_accounts_energy_label
 
     def get_energy_label(self, security_hub_findings):
-        """Calculates and returns the energy label of the Landing Zone.
+        """Calculates and returns the energy label of the zone.
 
         Args:
-            security_hub_findings: The measurement data of all the findings for a landing zone.
+            security_hub_findings: The measurement data of all the findings for a zone.
 
         Returns:
-            energy_label (LandingZoneEnergyLabel): The labeling object of the landing zone.
+            energy_label (ZoneEnergyLabel): The labeling object of the zone.
 
         """
         aggregate_label = self.get_energy_label_of_targeted_accounts(security_hub_findings)
         coverage_percentage = len(self.accounts_to_be_labeled) / len(self.accounts) * 100
-        return LandingZoneEnergyLabel(aggregate_label.label,
+        return ZoneEnergyLabel(aggregate_label.label,
                                       best_label=aggregate_label.best_label,
                                       worst_label=aggregate_label.worst_label,
                                       coverage=f'{coverage_percentage:.2f}%')
 
+
+
+class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
+    """Models the landing zone and retrieves accounts from it."""
+
+    # pylint: disable=too-many-arguments,dangerous-default-value
+    
+    
+    def __init__(self,
+                 name,
+                 allowed_account_ids=None,
+                 denied_account_ids=None,
+                 thresholds=ZONE_THRESHOLDS, 
+                 account_thresholds=ACCOUNT_THRESHOLDS):
+        super().__init__()
+        self.organizations = self._get_client()
+
+    @staticmethod
+    def _get_client():
+        """Provides the client to organizations.
+
+        Returns:
+            boto3 organizations client
+
+        Raises:
+            InvalidOrNoCredentials if credentials are not provided or are insufficient.
+
+        """
+        try:
+            client = boto3.client('organizations')
+            client.describe_organization()
+        except (botocore.exceptions.NoCredentialsError,
+                client.exceptions.AccessDeniedException,  # noqa
+                botocore.exceptions.ClientError) as msg:
+            raise InvalidOrNoCredentials(msg) from None
+        return client
+
+    def __repr__(self):
+        return f'{self.name} landing zone'
+
+    @property
+    @cached(cache=TTLCache(maxsize=1000, ttl=600))
+    def accounts(self):
+        """Accounts of the landing zone.
+
+        Returns:
+            List of accounts retrieved
+
+        Raises:
+            NoAccess: If insufficient access from credentials.
+
+        """
+        aws_accounts = []
+        paginator = self.organizations.get_paginator('list_accounts')
+        iterator = paginator.paginate()
+        try:
+            for page in iterator:
+                for account in page['Accounts']:
+                    account = AwsAccount(account.get('Id'), self.account_thresholds, account.get('Name'))
+                    aws_accounts.append(account)
+            return aws_accounts
+        except self.organizations.exceptions.AccessDeniedException as msg:
+            raise NoAccess(msg) from None
+
+
+class AuditZone(Zone):  # pylint: disable=too-many-instance-attributes
+    """Models the audit zone and retrieves accounts from it."""
+
+    # pylint: disable=too-many-arguments,dangerous-default-value
+    
+    
+    def __init__(self,
+                 name,
+                 allowed_account_ids=None,
+                 denied_account_ids=None,
+                 thresholds=ZONE_THRESHOLDS, 
+                 account_thresholds=ACCOUNT_THRESHOLDS):
+        super().__init__()
+        self.organizations = self._get_client()
+
+    @staticmethod
+    def _get_client():
+        """Provides the client to organizations.
+
+        Returns:
+            boto3 organizations client
+
+        Raises:
+            InvalidOrNoCredentials if credentials are not provided or are insufficient.
+
+        """
+        try:
+            client = boto3.client('organizations')
+            client.describe_organization()
+        except (botocore.exceptions.NoCredentialsError,
+                client.exceptions.AccessDeniedException,  # noqa
+                botocore.exceptions.ClientError) as msg:
+            raise InvalidOrNoCredentials(msg) from None
+        return client
+
+    def __repr__(self):
+        return f'{self.name} landing zone'
+
+    @property
+    @cached(cache=TTLCache(maxsize=1000, ttl=600))
+    def accounts(self):
+        """Accounts of the landing zone.
+
+        Returns:
+            List of accounts retrieved
+
+        Raises:
+            NoAccess: If insufficient access from credentials.
+
+        """
+        aws_accounts = []
+        paginator = self.organizations.get_paginator('list_accounts')
+        iterator = paginator.paginate()
+        try:
+            for page in iterator:
+                for account in page['Accounts']:
+                    account = AwsAccount(account.get('Id'), self.account_thresholds, account.get('Name'))
+                    aws_accounts.append(account)
+            return aws_accounts
+        except self.organizations.exceptions.AccessDeniedException as msg:
+            raise NoAccess(msg) from None
 
 @dataclass
 class AwsAccount:
     """Models the aws account that can label itself."""
 
     id: str  # pylint: disable=invalid-name
-    name: str
     account_thresholds: list
+    name: str = 'NOT_RETRIEVED'
     energy_label: AccountEnergyLabel = AccountEnergyLabel()
     _alias: str = None
 
@@ -442,7 +393,7 @@ class AwsAccount:
             except IndexError:
                 LOGGER.debug(f'Alias for account {self.id} is not set.')
             except botocore.exceptions.ClientError as msg:
-                LOGGER.error(f'Alias for account {self.id} could not be retrieved with message {msg}.')
+                LOGGER.warning(f'Alias for account {self.id} could not be retrieved with message {msg}.')
         return self._alias
 
     def calculate_energy_label(self, findings):
