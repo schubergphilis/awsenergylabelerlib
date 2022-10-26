@@ -297,7 +297,7 @@ class OrganizationsZone(Zone):
         return client
 
     def __repr__(self):
-        return f'{self.name} landing zone'
+        return f'{self.name} organizations zone'
 
     @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
