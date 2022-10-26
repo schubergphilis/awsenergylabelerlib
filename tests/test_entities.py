@@ -102,7 +102,6 @@ class TestAuditZone(unittest.TestCase):
             AuditZone('TEST', 'eu-west-1', denied_account_ids=['123456789123'])
         self.assertTrue(str(AuditZone('TEST', 'eu-west-1')) == 'TEST audit zone')
 
-
     def test_no_credentials(self):
         import os
         os.environ = {'AWS_ACCESS_KEY_ID': 'GARBAGE',
