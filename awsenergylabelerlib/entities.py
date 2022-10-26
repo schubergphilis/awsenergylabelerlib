@@ -61,7 +61,7 @@ from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             ZONE_THRESHOLDS,
                             ACCOUNT_THRESHOLDS,
                             FILE_EXPORT_TYPES)
-from .labels import AccountEnergyLabel, AggregateAccountsEnergyLabel, LandingZoneEnergyLabel
+from .labels import AccountEnergyLabel, ZoneEnergyLabel
 from .validations import validate_allowed_denied_account_ids, validate_allowed_denied_regions, DestinationPath
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
@@ -77,24 +77,31 @@ LOGGER_BASENAME = '''entities'''
 LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
+
 class Zone(ABC):  # pylint: disable=too-many-instance-attributes
-    """Models the landing zone and retrieves accounts from it."""
+    """Models the zone and retrieves accounts from it."""
 
-    # pylint: disable=too-many-arguments,dangerous-default-value
-
-
-    def __init__(self,
+    def __init__(self,  # pylint: disable=too-many-arguments,dangerous-default-value
                  name,
+                 region,
                  allowed_account_ids=None,
                  denied_account_ids=None,
                  thresholds=ZONE_THRESHOLDS,
-                 account_thresholds=ACCOUNT_THRESHOLDS):
+                 account_thresholds=ACCOUNT_THRESHOLDS,
+                 remote_service_client=None):
+        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        self.name = name
+        self.region = region
+        self.thresholds = thresholds
+        self.account_thresholds = account_thresholds
+        self._remote_service_client = remote_service_client
         account_ids = [account.id for account in self.accounts]
         allowed_account_ids, denied_account_ids = validate_allowed_denied_account_ids(allowed_account_ids,
                                                                                       denied_account_ids)
         self.allowed_account_ids = self._validate_zone_account_ids(allowed_account_ids, account_ids)
         self.denied_account_ids = self._validate_zone_account_ids(denied_account_ids, account_ids)
-
+        self._accounts_to_be_labeled = None
+        self._targeted_accounts_energy_label = None
 
     @staticmethod
     def _validate_zone_account_ids(account_ids, zone_account_ids):
@@ -114,22 +121,25 @@ class Zone(ABC):  # pylint: disable=too-many-instance-attributes
         accounts_not_in_zone = set(account_ids) - set(zone_account_ids)
         if accounts_not_in_zone:
             raise AccountsNotPartOfZone(f'The following account ids provided are not part of the zone :'
-                                               f' {accounts_not_in_zone}')
+                                        f' {accounts_not_in_zone}')
         return account_ids
 
-    @abstractmethod
     @staticmethod
-    def _get_client():
-        raise NotImplemented
+    @abstractmethod
+    def _get_client(region):
+        # Needs to implement the instantiation and testing of access of the appropriate remote service client
+        # and to be passed in the init of the parent class.
+        raise NotImplementedError
 
     def __repr__(self):
         return f'{self.name} zone'
 
-    @abstractmethod
     @property
+    @abstractmethod
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
-    def accounts(self):
-        raise NotImplemented
+    def accounts(self) -> []:
+        """Accounts."""
+        raise NotImplementedError
 
     def get_allowed_accounts(self):
         """Retrieves allowed accounts based on an allow list.
@@ -200,10 +210,11 @@ class Zone(ABC):  # pylint: disable=too-many-instance-attributes
         if self._targeted_accounts_energy_label is None:
             labeled_accounts = self.get_labeled_targeted_accounts(security_hub_findings)
             label_counter = Counter([account.energy_label.label for account in labeled_accounts])
-            number_of_accounts = len(labeled_accounts)
-            self._logger.debug(f'Number of accounts calculated are {number_of_accounts}')
+            number_of_labeled_accounts = len(labeled_accounts)
+            self._logger.debug(f'Number of accounts calculated are {number_of_labeled_accounts}')
             account_sums = []
             labels = []
+            coverage_percentage = number_of_labeled_accounts / len(self.accounts) * 100
             for threshold in self.thresholds:
                 label = threshold.get('label')
                 percentage = threshold.get('percentage')
@@ -211,19 +222,22 @@ class Zone(ABC):  # pylint: disable=too-many-instance-attributes
                 account_sums.append(label_counter.get(label, 0))
                 self._logger.debug(f'Calculating for labels {labels} with threshold {percentage} '
                                    f'and sums of {account_sums}')
-                if sum(account_sums) / number_of_accounts * 100 >= percentage:
+
+                if sum(account_sums) / number_of_labeled_accounts * 100 >= percentage:
                     self._logger.debug(f'Found a match with label {label}')
-                    self._targeted_accounts_energy_label = AggregateAccountsEnergyLabel(label,
-                                                                                        min(label_counter.keys()),
-                                                                                        max(label_counter.keys()),
-                                                                                        number_of_accounts)
+                    self._targeted_accounts_energy_label = ZoneEnergyLabel(label,
+                                                                           min(label_counter.keys()),
+                                                                           max(label_counter.keys()),
+                                                                           number_of_labeled_accounts,
+                                                                           coverage_percentage)
                     break
             else:
                 self._logger.debug('Found no match with thresholds, using default worst label F.')
-                self._targeted_accounts_energy_label = AggregateAccountsEnergyLabel('F',
-                                                                                    min(label_counter.keys()),
-                                                                                    max(label_counter.keys()),
-                                                                                    number_of_accounts)
+                self._targeted_accounts_energy_label = ZoneEnergyLabel('F',
+                                                                       min(label_counter.keys()),
+                                                                       max(label_counter.keys()),
+                                                                       number_of_labeled_accounts,
+                                                                       coverage_percentage)
         return self._targeted_accounts_energy_label
 
     def get_energy_label(self, security_hub_findings):
@@ -237,31 +251,33 @@ class Zone(ABC):  # pylint: disable=too-many-instance-attributes
 
         """
         aggregate_label = self.get_energy_label_of_targeted_accounts(security_hub_findings)
-        coverage_percentage = len(self.accounts_to_be_labeled) / len(self.accounts) * 100
+        number_of_labeled_accounts = len(self.accounts_to_be_labeled)
+        coverage_percentage = number_of_labeled_accounts / len(self.accounts) * 100
         return ZoneEnergyLabel(aggregate_label.label,
-                                      best_label=aggregate_label.best_label,
-                                      worst_label=aggregate_label.worst_label,
-                                      coverage=f'{coverage_percentage:.2f}%')
+                               best_label=aggregate_label.best_label,
+                               worst_label=aggregate_label.worst_label,
+                               accounts_measured=number_of_labeled_accounts,
+                               coverage=f'{coverage_percentage:.2f}%')
 
 
-
-class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
+class OrganizationsZone(Zone):
     """Models the landing zone and retrieves accounts from it."""
 
     # pylint: disable=too-many-arguments,dangerous-default-value
 
-
     def __init__(self,
                  name,
+                 region,
                  allowed_account_ids=None,
                  denied_account_ids=None,
                  thresholds=ZONE_THRESHOLDS,
                  account_thresholds=ACCOUNT_THRESHOLDS):
-        super().__init__()
-        self.organizations = self._get_client()
+        remote_service_client = self._get_client(region)
+        super().__init__(name, region, allowed_account_ids, denied_account_ids, thresholds, account_thresholds,
+                         remote_service_client)
 
     @staticmethod
-    def _get_client():
+    def _get_client(_):
         """Provides the client to organizations.
 
         Returns:
@@ -295,61 +311,61 @@ class LandingZone(Zone):  # pylint: disable=too-many-instance-attributes
             NoAccess: If insufficient access from credentials.
 
         """
-        aws_accounts = []
-        paginator = self.organizations.get_paginator('list_accounts')
-        iterator = paginator.paginate()
         try:
-            for page in iterator:
-                for account in page['Accounts']:
-                    account = AwsAccount(account.get('Id'), self.account_thresholds, account.get('Name'))
-                    aws_accounts.append(account)
-            return aws_accounts
-        except self.organizations.exceptions.AccessDeniedException as msg:
+            paginator = self._remote_service_client.get_paginator('list_accounts')
+            accounts = []
+            for page in paginator.paginate():
+                accounts.extend([AwsAccount(account.get('Id'), self.account_thresholds, account.get('Name'))
+                                 for account in page['Accounts']])
+            return accounts
+        except self._remote_service_client.exceptions.AccessDeniedException as msg:
             raise NoAccess(msg) from None
 
 
-class AuditZone(Zone):  # pylint: disable=too-many-instance-attributes
+class AuditZone(Zone):
     """Models the audit zone and retrieves accounts from it."""
 
     # pylint: disable=too-many-arguments,dangerous-default-value
 
-
     def __init__(self,
                  name,
+                 region,
                  allowed_account_ids=None,
                  denied_account_ids=None,
                  thresholds=ZONE_THRESHOLDS,
                  account_thresholds=ACCOUNT_THRESHOLDS):
-        super().__init__()
-        self.organizations = self._get_client()
+        remote_service_client = self._get_client(region)
+        super().__init__(name, region, allowed_account_ids, denied_account_ids, thresholds, account_thresholds,
+                         remote_service_client)
 
     @staticmethod
-    def _get_client():
-        """Provides the client to organizations.
+    def _get_client(region):
+        """Provides the client to security hub.
 
         Returns:
-            boto3 organizations client
+            boto3 security hub client
 
         Raises:
             InvalidOrNoCredentials if credentials are not provided or are insufficient.
 
         """
         try:
-            client = boto3.client('organizations')
-            client.describe_organization()
-        except (botocore.exceptions.NoCredentialsError,
-                client.exceptions.AccessDeniedException,  # noqa
+            config = Config(region_name=region)
+            kwargs = dict(config=config)
+            client = boto3.client('securityhub', **kwargs)
+            client.describe_hub()
+        except (client.exceptions.InvalidAccessException,  # noqa
                 botocore.exceptions.ClientError) as msg:
             raise InvalidOrNoCredentials(msg) from None
         return client
 
     def __repr__(self):
-        return f'{self.name} landing zone'
+        return f'{self.name} zone'
 
     @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
     def accounts(self):
-        """Accounts of the landing zone.
+        """Accounts of the zone.
 
         Returns:
             List of accounts retrieved
@@ -358,17 +374,15 @@ class AuditZone(Zone):  # pylint: disable=too-many-instance-attributes
             NoAccess: If insufficient access from credentials.
 
         """
-        aws_accounts = []
-        paginator = self.organizations.get_paginator('list_accounts')
-        iterator = paginator.paginate()
-        try:
-            for page in iterator:
-                for account in page['Accounts']:
-                    account = AwsAccount(account.get('Id'), self.account_thresholds, account.get('Name'))
-                    aws_accounts.append(account)
-            return aws_accounts
-        except self.organizations.exceptions.AccessDeniedException as msg:
-            raise NoAccess(msg) from None
+        # try:
+
+        paginator = self._remote_service_client.get_paginator('list_members')
+        accounts = []
+        for page in paginator.paginate():
+            accounts.extend([AwsAccount(account.get('AccountId'), self.account_thresholds)
+                             for account in page['Members']])
+        return accounts
+
 
 @dataclass
 class AwsAccount:
@@ -734,12 +748,17 @@ class SecurityHub:
         """Validates provided frameworks.
 
         Args:
-            frameworks: One or more of the frameworks to validate according to an accepted list.
+            frameworks: The frameworks to validate according to an accepted list, can be none.
 
         Returns:
-            True if frameworks are valid False otherwise.
+            A list of supported frameworks or an empty list.
+
+        Raises:
+            InvalidFrameworks: if the frameworks provided are not valid.
 
         """
+        if not frameworks:
+            return []
         if not isinstance(frameworks, (list, tuple, set)):
             frameworks = [frameworks]
         if set(frameworks).issubset(SecurityHub.frameworks):
@@ -748,7 +767,6 @@ class SecurityHub:
 
     def _get_aggregating_region(self):
         aggregating_region = None
-        client = boto3.client('securityhub')
         try:
             config = Config(region_name=self.aws_region)
             kwargs = dict(config=config)
@@ -776,16 +794,18 @@ class SecurityHub:
 
         """
         frameworks = SecurityHub.validate_frameworks(frameworks)
+        if not frameworks:
+            return findings
 
         def framework_to_finding_attribute(framework):
             return f'is_{framework.replace("-", "_")}'
+
         attributes = [framework_to_finding_attribute(framework) for framework in frameworks]
         return [finding for finding in findings
                 if any([getattr(finding, attribute) for attribute in attributes])]
 
-    @retry(retry_on_exceptions=botocore.exceptions.ClientError)
     def get_findings(self, query_filter):
-        """Retrieves findings from security hub.
+        """Retrieves findings from security hub based on a provided query.
 
         Args:
             query_filter (dict): The query filter to execute on security hub to get the findings.
@@ -794,6 +814,37 @@ class SecurityHub:
             findings (list): A list of findings from security hub.
 
         """
+        return self._get_findings(query_filter)
+
+    def get_suppressed_findings(self):
+        """Get the suppressed findings.
+
+        Returns:
+            A list of suppressed findings.
+
+        """
+        query_filter = {'WorkflowStatus': [{'Value': 'SUPPRESSED',
+                                            'Comparison': 'EQUALS'}]}
+        return self._get_findings(query_filter)
+
+    def get_findings_resolved_by_day_offset(self, days_ago=30):
+        """Get findings that have been resolved the last days based on the days_ago provided value.
+
+        Args:
+            days_ago: The number of days to filter for resolved findings.
+
+        Returns:
+            A list of findings resolved during the provided time window.
+
+        """
+        query_filter = {'UpdatedAt': [{'DateRange': {'Value': days_ago,
+                                                     'Unit': 'DAYS'}}],
+                        'WorkflowStatus': [{'Value': 'RESOLVED',
+                                            'Comparison': 'EQUALS'}]}
+        return self._get_findings(query_filter)
+
+    @retry(retry_on_exceptions=botocore.exceptions.ClientError)
+    def _get_findings(self, query_filter):
         findings = set()
         aggregating_region = self._get_aggregating_region()
         regions_to_retrieve = [aggregating_region] if aggregating_region else self.regions

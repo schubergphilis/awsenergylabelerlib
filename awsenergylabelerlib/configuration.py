@@ -34,11 +34,11 @@ Import all parts from configuration here
 
 import json
 import logging
-import urllib.request
 import urllib.error
+import urllib.request
 
 from .awsenergylabelerlibexceptions import UnableToRetrieveSecurityHubRegions
-from .datamodels import (LandingZoneEnergyLabelingData,
+from .datamodels import (ZoneEnergyLabelingData,
                          SecurityHubFindingsData,
                          SecurityHubFindingsResourcesData,
                          SecurityHubFindingsTypesData,
@@ -87,8 +87,8 @@ ACCOUNT_THRESHOLDS = [{'label': 'A',
 ZONE_THRESHOLDS = [{'label': 'A',
                     'percentage': 90},
                    {'label': 'B',
-                     'percentage': 70},
-                   {'label': 'C', 
+                    'percentage': 70},
+                   {'label': 'C',
                     'percentage': 50},
                    {'label': 'D',
                     'percentage': 30},
@@ -132,9 +132,9 @@ SECURITY_HUB_ACTIVE_REGIONS = ['ap-east-1', 'ap-northeast-2', 'ap-southeast-1', 
                                'eu-central-1', 'us-gov-east-1']
 
 FILE_EXPORT_TYPES = [
-    {'type': 'landing_zone_energy_label',
-     'filename': 'landing-zone-energy-label.json',
-     'object_type': LandingZoneEnergyLabelingData,
+    {'type': 'zone_energy_label',
+     'filename': 'zone-energy-label.json',
+     'object_type': ZoneEnergyLabelingData,
      'required_arguments': ['name', 'energy_label']},
     {'type': 'findings',
      'filename': 'security-hub-findings.json',
@@ -158,11 +158,11 @@ FILE_EXPORT_TYPES = [
      'required_arguments': ['labeled_accounts']},
 ]
 
-LANDING_ZONE_METRIC_EXPORT_TYPES = ['landing_zone_energy_label', 'labeled_accounts']
+ZONE_METRIC_EXPORT_TYPES = ['zone_energy_label', 'labeled_accounts']
 
 ACCOUNT_METRIC_EXPORT_TYPES = ['account_energy_label']
 
 DATA_EXPORT_TYPES = ['findings', 'findings_resources', 'findings_types']
 
-ALL_LANDING_ZONE_EXPORT_TYPES = LANDING_ZONE_METRIC_EXPORT_TYPES + DATA_EXPORT_TYPES
+ALL_ZONE_EXPORT_TYPES = ZONE_METRIC_EXPORT_TYPES + DATA_EXPORT_TYPES
 ALL_ACCOUNT_EXPORT_TYPES = ACCOUNT_METRIC_EXPORT_TYPES + DATA_EXPORT_TYPES

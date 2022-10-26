@@ -50,26 +50,14 @@ LOGGER.addHandler(logging.NullHandler())
 
 
 @dataclass
-class AggregateEnergyLabel:
-    """Models an energy label averaging multiple account labels."""
+class ZoneEnergyLabel:
+    """Models the zone energy label."""
 
     label: str
     best_label: str
     worst_label: str
-
-
-@dataclass
-class AggregateAccountsEnergyLabel(AggregateEnergyLabel):
-    """Models an energy label averaging multiple accounts."""
-
     accounts_measured: int
-
-
-@dataclass
-class ZoneEnergyLabel(AggregateEnergyLabel):
-    """Models the zone energy label."""
-
-    coverage: str
+    coverage: float
 
 
 @dataclass

@@ -54,5 +54,5 @@ account_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 
                                      'low': And(int, lambda n: n >= 0),
                                      'days_open_less_than': And(int, lambda n: n > 0)}])
 
-landing_zone_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
-                                          'percentage': And(int, lambda n: 0 <= n <= 100)}])
+zone_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
+                                  'percentage': And(int, lambda n: 0 <= n <= 100)}])

@@ -38,7 +38,7 @@ from datetime import datetime
 
 from awsenergylabelerlib import AwsAccount
 from awsenergylabelerlib import EnergyLabeler as EnergyLabelerToMock
-from awsenergylabelerlib import LandingZone as LandingZoneToMock
+from awsenergylabelerlib import OrganizationsZone as LandingZoneToMock
 from awsenergylabelerlib import SecurityHub as SecurityHubToMock
 from awsenergylabelerlib.entities import Finding
 
@@ -57,10 +57,10 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class LandingZone(LandingZoneToMock):
+class OrganizationsZone(LandingZoneToMock):
 
     @staticmethod
-    def _get_client():
+    def _get_client(_):
         return None
 
     @property
@@ -69,6 +69,10 @@ class LandingZone(LandingZoneToMock):
             accounts_data = json.loads(ifile.read())
         return [AwsAccount(account.get('id'), account.get('name'), self.account_thresholds)
                 for account in accounts_data]
+
+
+class AuditZone(OrganizationsZone):
+    """Implements the same accounts as the landing zone for the tests."""
 
 
 def adjust_datetime_offset_to_now(finding):
@@ -123,15 +127,10 @@ class SecurityHub(SecurityHubToMock):
         return account_matching_findings
 
 
+from awsenergylabelerlib.awsenergylabelerlib import SUPPORTED_ZONE_TYPES
+
 class EnergyLabeler(EnergyLabelerToMock):
     """Energy labeler mock."""
-
-    def _initialize_landing_zone(self, name, allowed_account_ids, denied_account_ids):
-        return LandingZone(name,
-                           self.landing_zone_thresholds,
-                           self.account_thresholds,
-                           allowed_account_ids,
-                           denied_account_ids)
 
     @staticmethod
     def _initialize_security_hub(region, allowed_regions, denied_regions):
