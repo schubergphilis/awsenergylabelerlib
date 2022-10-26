@@ -131,9 +131,6 @@ class Zone(ABC):  # pylint: disable=too-many-instance-attributes
         # and to be passed in the init of the parent class.
         raise NotImplementedError
 
-    def __repr__(self):
-        return f'{self.name} zone'
-
     @property
     @abstractmethod
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
@@ -338,6 +335,9 @@ class AuditZone(Zone):
         super().__init__(name, region, allowed_account_ids, denied_account_ids, thresholds, account_thresholds,
                          remote_service_client)
 
+    def __repr__(self):
+        return f'{self.name} audit zone'
+
     @staticmethod
     def _get_client(region):
         """Provides the client to security hub.
@@ -358,9 +358,6 @@ class AuditZone(Zone):
                 botocore.exceptions.ClientError) as msg:
             raise InvalidOrNoCredentials(msg) from None
         return client
-
-    def __repr__(self):
-        return f'{self.name} zone'
 
     @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))

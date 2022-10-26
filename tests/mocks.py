@@ -73,7 +73,8 @@ class OrganizationsZone(OrganizationsZoneToMock):
 
 class AuditZone(OrganizationsZone):
     """Implements the same accounts as the landing zone for the tests."""
-
+    def __repr__(self):
+        return f'{self.name} audit zone'
 
 def adjust_datetime_offset_to_now(finding):
     offset = finding.updated_at - finding.created_at

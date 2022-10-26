@@ -58,7 +58,7 @@ class TestOrganizationsZone(unittest.TestCase):
             OrganizationsZone('TEST', 'eu-west-1', allowed_account_ids=['123456789123'])
         with self.assertRaises(AccountsNotPartOfZone):
             OrganizationsZone('TEST', 'eu-west-1', denied_account_ids=['123456789123'])
-        self.assertTrue(str(OrganizationsZone('TEST', 'eu-west-1')) == 'TEST landing zone')
+        self.assertTrue(str(OrganizationsZone('TEST', 'eu-west-1')) == 'TEST organizations zone')
 
 
     def test_no_credentials(self):
@@ -100,7 +100,7 @@ class TestAuditZone(unittest.TestCase):
             AuditZone('TEST', 'eu-west-1', allowed_account_ids=['123456789123'])
         with self.assertRaises(AccountsNotPartOfZone):
             AuditZone('TEST', 'eu-west-1', denied_account_ids=['123456789123'])
-        self.assertTrue(str(AuditZone('TEST', 'eu-west-1')) == 'TEST landing zone')
+        self.assertTrue(str(AuditZone('TEST', 'eu-west-1')) == 'TEST audit zone')
 
 
     def test_no_credentials(self):
