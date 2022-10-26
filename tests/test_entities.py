@@ -105,7 +105,9 @@ class TestAuditZone(unittest.TestCase):
 
     def test_no_credentials(self):
         import os
-        os.environ = {}
+        os.environ = {'AWS_ACCESS_KEY_ID': 'GARBAGE',
+                      'AWS_SECRET_ACCESS_KEY': 'GARBAGE',
+                      'AWS_SESSION_TOKEN': 'GARBAGE'}
         with self.assertRaises(InvalidOrNoCredentials):
             AuditZoneUnPatched('TEST', 'eu-west-1')
 
