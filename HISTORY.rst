@@ -150,3 +150,15 @@ History
 
 * Fixed timestamp bug
 * Fixed bug where accounts without findings got an F
+
+
+2.0.0 (25-10-2022)
+------------------
+
+* Removed "CIS" from default frameworks, fixed a bug with required region for security hub service.
+
+
+2.0.1 (25-10-2022)
+------------------
+
+* Set appropriate logging level for unsuccessful retrieval of account alias.
