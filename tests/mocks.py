@@ -38,7 +38,7 @@ from datetime import datetime
 
 from awsenergylabelerlib import AwsAccount
 from awsenergylabelerlib import EnergyLabeler as EnergyLabelerToMock
-from awsenergylabelerlib import OrganizationsZone as LandingZoneToMock
+from awsenergylabelerlib import OrganizationsZone as OrganizationsZoneToMock
 from awsenergylabelerlib import SecurityHub as SecurityHubToMock
 from awsenergylabelerlib.entities import Finding
 
@@ -57,7 +57,7 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class OrganizationsZone(LandingZoneToMock):
+class OrganizationsZone(OrganizationsZoneToMock):
 
     @staticmethod
     def _get_client(_):
