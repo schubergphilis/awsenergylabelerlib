@@ -258,7 +258,7 @@ class Zone(ABC):  # pylint: disable=too-many-instance-attributes
 
 
 class OrganizationsZone(Zone):
-    """Models the landing zone and retrieves accounts from it."""
+    """Models the organizations zone and retrieves accounts from it."""
 
     # pylint: disable=too-many-arguments,dangerous-default-value
 
@@ -299,7 +299,7 @@ class OrganizationsZone(Zone):
     @property
     @cached(cache=TTLCache(maxsize=1000, ttl=600))
     def accounts(self):
-        """Accounts of the landing zone.
+        """Accounts of the organizations zone.
 
         Returns:
             List of accounts retrieved

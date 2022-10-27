@@ -148,7 +148,7 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
 
     @property
     def zone_energy_label(self):
-        """Energy label of the landing zone."""
+        """Energy label of the zone."""
         if self._zone_energy_label is None:
             self._logger.debug(f'Zone accounts labeled are {len(self._zone.accounts_to_be_labeled)}')
             self._zone_energy_label = self._zone.get_energy_label(self.security_hub_findings)
@@ -164,7 +164,7 @@ class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-a
 
     @property
     def zone_labeled_accounts(self):
-        """The landing zone labeled account objects."""
+        """The zone labeled account objects."""
         if self._zone_labeled_accounts is None:
             self._zone_labeled_accounts = self._zone.get_labeled_targeted_accounts(
                 self.security_hub_findings)
