@@ -74,8 +74,8 @@ class InvalidRegion(Exception):
     """The region provided is not valid."""
 
 
-class AccountsNotPartOfLandingZone(Exception):
-    """If accounts ids are provided but are not part of the landing zone."""
+class AccountsNotPartOfZone(Exception):
+    """If accounts ids are provided but are not part of the zone."""
 
 
 class UnableToRetrieveSecurityHubRegions(Exception):
@@ -84,3 +84,7 @@ class UnableToRetrieveSecurityHubRegions(Exception):
 
 class InvalidPath(Exception):
     """The path provided is not valid."""
+
+
+class UnsupportedZoneType(Exception):
+    """The zone type provided is not supported."""
