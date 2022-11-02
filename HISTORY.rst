@@ -162,3 +162,9 @@ History
 ------------------
 
 * Set appropriate logging level for unsuccessful retrieval of account alias.
+
+
+2.0.2 (02-11-2022)
+------------------
+
+* Fixes parsing for dates for inspector findings by implementing auto datetime parsing.
