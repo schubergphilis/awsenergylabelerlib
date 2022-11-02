@@ -31,6 +31,7 @@ Import all parts from entities here
 .. _Google Python Style Guide:
    http://google.github.io/styleguide/pyguide.html
 """
+# pylint: disable=too-many-lines
 
 import logging
 import tempfile
