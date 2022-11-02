@@ -603,6 +603,17 @@ class SecurityHub:
         return boto3.client('sts')
 
     @staticmethod
+    def _get_security_hub_client(region):
+        try:
+            config = Config(region_name=region)
+            kwargs = dict(config=config)
+            client = boto3.client('securityhub', **kwargs)
+        except (botocore.exceptions.NoRegionError,
+                botocore.exceptions.InvalidRegionError) as msg:
+            raise NoRegion(f'Security Hub client requires a valid region set to connect, message was:{msg}') from None
+        return client
+
+    @staticmethod
     def _get_ec2_client(region):
         kwargs = {}
         if region:
@@ -661,15 +672,10 @@ class SecurityHub:
     def _get_aggregating_region(self):
         aggregating_region = None
         try:
-            config = Config(region_name=self.aws_region)
-            kwargs = dict(config=config)
-            client = boto3.client('securityhub', **kwargs)
+            client = self._get_security_hub_client(self.aws_region)
             data = client.list_finding_aggregators()
             aggregating_region = data.get('FindingAggregators')[0].get('FindingAggregatorArn').split(':')[3]
             self._logger.info(f'Found aggregating region {aggregating_region}')
-        except (botocore.exceptions.NoRegionError,
-                botocore.exceptions.InvalidRegionError) as msg:
-            raise NoRegion(f'Security Hub client requires a valid region set to connect, message was:{msg}') from None
         except (IndexError, botocore.exceptions.ClientError):
             self._logger.debug('Could not get aggregating region, either not set, or a client error')
         return aggregating_region
@@ -690,6 +696,7 @@ class SecurityHub:
 
         def framework_to_finding_attribute(framework):
             return f'is_{framework.replace("-", "_")}'
+
         attributes = [framework_to_finding_attribute(framework) for framework in frameworks]
         return [finding for finding in findings
                 if any([getattr(finding, attribute) for attribute in attributes])]
@@ -774,6 +781,17 @@ class SecurityHub:
         if aws_account_ids:
             query_filter.update({'AwsAccountId': aws_account_ids})
         return query_filter
+
+    @property
+    def enabled_products(self):
+        """The enabled security hub products.
+
+        Returns:
+            A list of arns for the enabled security hub products.
+
+        """
+        client = self._get_security_hub_client(self.aws_region)
+        return client.list_enabled_products_for_import().get('ProductSubscriptions', [])
 
 
 class DataExporter:  # pylint: disable=too-few-public-methods
