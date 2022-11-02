@@ -50,7 +50,7 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class LandingZoneEnergyLabelingData:  # pylint: disable=too-few-public-methods
+class ZoneEnergyLabelingData:  # pylint: disable=too-few-public-methods
     """Models the data for energy labeling to export."""
 
     def __init__(self, filename, name, energy_label):
@@ -61,8 +61,8 @@ class LandingZoneEnergyLabelingData:  # pylint: disable=too-few-public-methods
     @property
     def json(self):
         """Data to json."""
-        return json.dumps([{'Landing Zone Name': self._name,
-                            'Landing Zone Energy Label': self._energy_label}],
+        return json.dumps([{'Zone Name': self._name,
+                            'Zone Energy Label': self._energy_label}],
                           indent=2, default=str)
 
 

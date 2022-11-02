@@ -32,7 +32,7 @@ Import all parts from awsenergylabelerlib here
    http://google.github.io/styleguide/pyguide.html
 """
 from ._version import __version__
-from .awsenergylabelerlib import EnergyLabeler, LandingZone, SecurityHub
+from .awsenergylabelerlib import EnergyLabeler, OrganizationsZone, AuditZone, SecurityHub
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             InvalidOrNoCredentials,
                                             InvalidAccountListProvided,
@@ -40,17 +40,18 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             MutuallyExclusiveArguments,
                                             NoAccess,
                                             NoRegion,
-                                            AccountsNotPartOfLandingZone,
+                                            AccountsNotPartOfZone,
                                             UnableToRetrieveSecurityHubRegions,
-                                            InvalidRegion)
-from .configuration import (ALL_LANDING_ZONE_EXPORT_TYPES,
+                                            InvalidRegion,
+                                            UnsupportedZoneType)
+from .configuration import (ALL_ZONE_EXPORT_TYPES,
                             ALL_ACCOUNT_EXPORT_TYPES,
                             DATA_EXPORT_TYPES,
                             ACCOUNT_METRIC_EXPORT_TYPES,
-                            LANDING_ZONE_METRIC_EXPORT_TYPES,
+                            ZONE_METRIC_EXPORT_TYPES,
                             SECURITY_HUB_ACTIVE_REGIONS,
                             ACCOUNT_THRESHOLDS,
-                            LANDING_ZONE_THRESHOLDS,
+                            ZONE_THRESHOLDS,
                             DEFAULT_SECURITY_HUB_FILTER,
                             DEFAULT_SECURITY_HUB_FRAMEWORKS)
 from .entities import DataExporter, AwsAccount
@@ -77,7 +78,8 @@ __status__ = '''Development'''  # "Prototype", "Development", "Production".
 # This is to 'use' the module(s), so lint doesn't complain
 assert __version__
 assert EnergyLabeler
-assert LandingZone
+assert OrganizationsZone
+assert AuditZone
 assert SecurityHub
 
 assert InvalidFrameworks
@@ -87,18 +89,19 @@ assert InvalidRegionListProvided
 assert MutuallyExclusiveArguments
 assert NoAccess
 assert NoRegion
-assert AccountsNotPartOfLandingZone
+assert AccountsNotPartOfZone
 assert UnableToRetrieveSecurityHubRegions
 assert InvalidRegion
+assert UnsupportedZoneType
 
-assert ALL_LANDING_ZONE_EXPORT_TYPES
+assert ALL_ZONE_EXPORT_TYPES
 assert ALL_ACCOUNT_EXPORT_TYPES
 assert DATA_EXPORT_TYPES
-assert LANDING_ZONE_METRIC_EXPORT_TYPES
+assert ZONE_METRIC_EXPORT_TYPES
 assert ACCOUNT_METRIC_EXPORT_TYPES
 assert SECURITY_HUB_ACTIVE_REGIONS
 assert ACCOUNT_THRESHOLDS
-assert LANDING_ZONE_THRESHOLDS
+assert ZONE_THRESHOLDS
 assert DEFAULT_SECURITY_HUB_FILTER
 assert DEFAULT_SECURITY_HUB_FRAMEWORKS
 
