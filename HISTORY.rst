@@ -168,3 +168,9 @@ History
 ------------------
 
 * Fixes parsing for dates for inspector findings by implementing auto datetime parsing.
+
+
+3.0.0 (02-11-2022)
+------------------
+
+* Implements the concept of a Zone to not require full Organizations access rights.
