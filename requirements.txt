@@ -11,3 +11,4 @@ boto3~=1.19.12
 schema~=0.7.5
 cachetools~=4.2.4
 opnieuw~=1.1.0
+python-dateutil~=2.8.2

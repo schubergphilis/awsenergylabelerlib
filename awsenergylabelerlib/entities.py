@@ -46,6 +46,7 @@ import botocore.errorfactory
 import botocore.exceptions
 from botocore.config import Config
 from cachetools import cached, TTLCache
+from dateutil.parser import parse
 from opnieuw import retry
 
 from .awsenergylabelerlibexceptions import (InvalidFrameworks,
@@ -537,11 +538,11 @@ class Finding:  # pylint: disable=too-many-public-methods
         """Updated at."""
         return self._parse_date_time(self._data.get('UpdatedAt'))
 
-    @staticmethod
-    def _parse_date_time(datetime_string):
+    def _parse_date_time(self, datetime_string):
         try:
-            return datetime.strptime(datetime_string, '%Y-%m-%dT%H:%M:%S.%fZ')
+            return parse(datetime_string)
         except ValueError:
+            self._logger.warning(f'Could not automatically parse datetime string: "{datetime_string}"')
             return None
 
     @property
