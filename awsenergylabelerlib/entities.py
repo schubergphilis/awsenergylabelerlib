@@ -469,7 +469,7 @@ class AwsAccount:
                                                        number_of_low_findings,
                                                        max_days_open)
         except Exception:  # pylint: disable=broad-except
-            self._logger.exception(f'Could not calculate energy label for account {self.id}, using the default "F"')
+            self._logger.warning(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
 
 
