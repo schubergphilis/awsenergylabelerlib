@@ -145,8 +145,8 @@ class LabeledAccountData:
         """Data of an account to export."""
         return {'Account ID': self._labeled_account.id,
                 'Account Name (or alias if set)': self._labeled_account.alias or self._labeled_account.name,
-                'Number of critical & high findings':
-                    self._labeled_account.energy_label.number_of_critical_high_findings,
+                'Number of critical findings': self._labeled_account.energy_label.number_of_critical_findings,
+                'Number of high findings': self._labeled_account.energy_label.number_of_high_findings,
                 'Number of medium findings': self._labeled_account.energy_label.number_of_medium_findings,
                 'Number of low findings': self._labeled_account.energy_label.number_of_low_findings,
                 'Number of maximum days open': self._labeled_account.energy_label.max_days_open,

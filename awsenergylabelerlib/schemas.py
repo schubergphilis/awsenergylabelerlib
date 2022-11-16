@@ -49,7 +49,8 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 account_thresholds_schema = Schema([{'label': lambda label: label in ('A', 'B', 'C', 'D', 'E'),
-                                     'critical_high': And(int, lambda n: n >= 0),
+                                     'critical': And(int, lambda n: n >= 0),
+                                     'high': And(int, lambda n: n >= 0),
                                      'medium': And(int, lambda n: n >= 0),
                                      'low': And(int, lambda n: n >= 0),
                                      'days_open_less_than': And(int, lambda n: n > 0)}])

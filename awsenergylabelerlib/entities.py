@@ -429,12 +429,11 @@ class AwsAccount:
                 open_days_counter[finding.days_open] += 1
         if not counted_findings:
             self._logger.info(f'No findings for account {self.id}')
-            self.energy_label = AccountEnergyLabel('A', 0, 0, 0, 0)
+            self.energy_label = AccountEnergyLabel('A', 0, 0, 0, 0, 0)
             return self.energy_label
         try:
             number_of_critical_findings = counted_findings.get('CRITICAL', 0)
             number_of_high_findings = counted_findings.get('HIGH', 0)
-            number_of_critical_high_findings = number_of_critical_findings + number_of_high_findings
             number_of_medium_findings = counted_findings.get('MEDIUM', 0)
             number_of_low_findings = counted_findings.get('LOW', 0)
             try:
@@ -442,19 +441,21 @@ class AwsAccount:
             except ValueError:
                 max_days_open = 0
             self._logger.debug(f'Calculating for account {self.id} '
-                               f'with number of critical+high findings '
-                               f'{number_of_critical_high_findings}, '
+                               f'with number of critical findings {number_of_critical_findings},'
+                               f'number of high findings {number_of_high_findings}, '
                                f'number of medium findings {number_of_medium_findings}, '
                                f'number of low findings {number_of_low_findings}, '
                                f'and findings have been open for over '
                                f'{max_days_open} days')
             for threshold in self.account_thresholds:
-                if all([number_of_critical_high_findings <= threshold['critical_high'],
+                if all([number_of_critical_findings <= threshold['critical'],
+                        number_of_high_findings <= threshold['high'],
                         number_of_medium_findings <= threshold['medium'],
                         number_of_low_findings <= threshold['low'],
                         max_days_open < threshold['days_open_less_than']]):
                     self.energy_label = AccountEnergyLabel(threshold['label'],
-                                                           number_of_critical_high_findings,
+                                                           number_of_critical_findings,
+                                                           number_of_high_findings,
                                                            number_of_medium_findings,
                                                            number_of_low_findings,
                                                            max_days_open)
@@ -464,7 +465,8 @@ class AwsAccount:
             else:
                 self._logger.debug('No match with thresholds for energy label, using default worst one.')
                 self.energy_label = AccountEnergyLabel('F',
-                                                       number_of_critical_high_findings,
+                                                       number_of_critical_findings,
+                                                       number_of_high_findings,
                                                        number_of_medium_findings,
                                                        number_of_low_findings,
                                                        max_days_open)
