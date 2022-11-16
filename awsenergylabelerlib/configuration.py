@@ -43,7 +43,8 @@ from .datamodels import (ZoneEnergyLabelingData,
                          SecurityHubFindingsResourcesData,
                          SecurityHubFindingsTypesData,
                          LabeledAccountsData,
-                         LabeledAccountData)
+                         LabeledAccountData,
+                         Metadata)
 
 __author__ = 'Costas Tyfoxylos <ctyfoxylos@schubergphilis.com>'
 __docformat__ = '''google'''
@@ -156,11 +157,15 @@ FILE_EXPORT_TYPES = [
      'filename': 'account-energy-label.json',
      'object_type': LabeledAccountData,
      'required_arguments': ['labeled_accounts']},
+    {'type': 'metadata',
+     'filename': 'metadata.json',
+     'object_type': Metadata,
+     'required_arguments': ['metadata']},
 ]
 
-ZONE_METRIC_EXPORT_TYPES = ['zone_energy_label', 'labeled_accounts']
+ZONE_METRIC_EXPORT_TYPES = ['zone_energy_label', 'labeled_accounts', 'metadata']
 
-ACCOUNT_METRIC_EXPORT_TYPES = ['account_energy_label']
+ACCOUNT_METRIC_EXPORT_TYPES = ['account_energy_label', 'metadata']
 
 DATA_EXPORT_TYPES = ['findings', 'findings_resources', 'findings_types']
 

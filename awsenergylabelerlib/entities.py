@@ -936,12 +936,13 @@ class DataExporter:  # pylint: disable=too-few-public-methods
     """Export AWS security data."""
 
     #  pylint: disable=too-many-arguments
-    def __init__(self, export_types, name, energy_label, security_hub_findings, labeled_accounts):
+    def __init__(self, export_types, name, energy_label, security_hub_findings, labeled_accounts, metadata):
         self.name = name
         self.energy_label = energy_label
         self.security_hub_findings = security_hub_findings
         self.labeled_accounts = labeled_accounts
         self.export_types = export_types
+        self.metadata = metadata
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
     def export(self, path):
@@ -954,7 +955,8 @@ class DataExporter:  # pylint: disable=too-few-public-methods
                                         self.name,
                                         self.energy_label,
                                         self.security_hub_findings,
-                                        self.labeled_accounts)
+                                        self.labeled_accounts,
+                                        self.metadata)
             if destination.type == 's3':
                 self._export_to_s3(path, data_file.filename, data_file.json)  # pylint: disable=no-member
             else:
@@ -990,7 +992,7 @@ class DataFileFactory:  # pylint: disable=too-few-public-methods
     """Data export factory to handle the different data types returned."""
 
     #  pylint: disable=too-many-arguments, unused-argument
-    def __new__(cls, export_type, name, energy_label, security_hub_findings, labeled_accounts):
+    def __new__(cls, export_type, name, energy_label, security_hub_findings, labeled_accounts, metadata):
         data_file_configuration = next((datafile for datafile in FILE_EXPORT_TYPES
                                         if datafile.get('type') == export_type.lower()), None)
 

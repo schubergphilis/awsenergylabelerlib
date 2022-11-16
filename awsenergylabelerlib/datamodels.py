@@ -170,3 +170,16 @@ class LabeledAccountsData:  # pylint: disable=too-few-public-methods
         """Data to json."""
         return json.dumps([LabeledAccountData(self.filename, account).data
                            for account in self._labeled_accounts], indent=2, default=str)
+
+
+class Metadata:  # pylint: disable=too-few-public-methods
+    """Models the data for execution metadata to export."""
+
+    def __init__(self, filename, metadata):
+        self.filename = filename
+        self._metadata = metadata
+
+    @property
+    def json(self):
+        """Data to json."""
+        return json.dumps(self._metadata, indent=2, default=str)
