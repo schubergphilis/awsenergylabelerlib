@@ -448,8 +448,7 @@ class AwsAccount:
                                f'and findings have been open for over '
                                f'{max_days_open} days')
             for threshold in self.account_thresholds:
-                if all([number_of_critical_findings <= threshold['critical'],
-                        number_of_high_findings <= threshold['high'],
+                if all([(number_of_critical_findings + number_of_high_findings) <= threshold['critical_high'],
                         number_of_medium_findings <= threshold['medium'],
                         number_of_low_findings <= threshold['low'],
                         max_days_open < threshold['days_open_less_than']]):
