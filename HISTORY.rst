@@ -174,3 +174,9 @@ History
 ------------------
 
 * Implements the concept of a Zone to not require full Organizations access rights.
+
+
+3.1.0 (16-11-2022)
+------------------
+
+* Implemented support for metadata, seperated critical and high findings in the report and implemented support for CIS 1.4 findings.
