@@ -571,7 +571,7 @@ class Finding:  # pylint: disable=too-many-public-methods
     @property
     def is_cis(self):
         """Is this cis framework finding."""
-        return '/cis-aws' in self.generator_id
+        return 'cis-aws' in self.generator_id
 
     @property
     def is_pci_dss(self):
