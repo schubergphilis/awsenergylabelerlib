@@ -120,7 +120,7 @@ def get_available_security_hub_regions():
         with urllib.request.urlopen(url) as response:
             response_json = json.loads(response.read())
     except (urllib.error.URLError, ValueError):
-        raise UnableToRetrieveSecurityHubRegions('Failed to retrieve applicable AWS regions')
+        raise UnableToRetrieveSecurityHubRegions('Failed to retrieve applicable AWS regions') from None
     return [entry.get('id', '').split(':')[1]
             for entry in response_json.get('prices')
             if entry.get('id').startswith('securityhub')]
