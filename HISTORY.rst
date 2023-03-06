@@ -180,3 +180,9 @@ History
 ------------------
 
 * Implemented support for metadata, seperated critical and high findings in the report and implemented support for CIS 1.4 findings.
+
+
+3.2.0 (06-03-2023)
+------------------
+
+* Bump dependencies.
