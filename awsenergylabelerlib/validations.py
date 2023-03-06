@@ -82,7 +82,7 @@ def are_valid_account_ids(account_ids):
     """
     if not isinstance(account_ids, (list, tuple, set)):
         return False
-    return all([is_valid_account_id(account) for account in account_ids])
+    return all(is_valid_account_id(account) for account in account_ids)
 
 
 def validate_account_ids(account_ids):

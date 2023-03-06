@@ -64,7 +64,7 @@ SUPPORTED_ZONE_TYPES = {'organizations_zone': OrganizationsZone,
                         'audit_zone': AuditZone}
 
 
-class EnergyLabeler:  # pylint: disable=too-many-arguments,  too-many-instance-attributes
+class EnergyLabeler:  # pylint: disable=too-many-arguments
     """Labeling accounts and zone based on findings and label configurations."""
 
     # pylint: disable=dangerous-default-value

@@ -80,7 +80,7 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class Zone(ABC):  # pylint: disable=too-many-instance-attributes
+class Zone(ABC):
     """Models the zone and retrieves accounts from it."""
 
     def __init__(self,  # pylint: disable=too-many-arguments,dangerous-default-value
@@ -353,7 +353,7 @@ class AuditZone(Zone):
         """
         try:
             config = Config(region_name=region)
-            kwargs = dict(config=config)
+            kwargs = {"config": config}
             client = boto3.client('securityhub', **kwargs)
             client.describe_hub()
         except (client.exceptions.InvalidAccessException,  # noqa
@@ -475,7 +475,7 @@ class AwsAccount:
 
 
 @dataclass
-class Finding:  # pylint: disable=too-many-public-methods
+class Finding:
     """Models a finding."""
 
     _data: dict
@@ -708,7 +708,7 @@ class SecurityHub:
     def _get_security_hub_client(region):
         try:
             config = Config(region_name=region)
-            kwargs = dict(config=config)
+            kwargs = {"config": config}
             client = boto3.client('securityhub', **kwargs)
         except (botocore.exceptions.NoRegionError,
                 botocore.exceptions.InvalidRegionError) as msg:
@@ -720,7 +720,7 @@ class SecurityHub:
         kwargs = {}
         if region:
             config = Config(region_name=region)
-            kwargs = dict(config=config)
+            kwargs = {"config": config}
         try:
             client = boto3.client('ec2', **kwargs)
             client.describe_regions()
@@ -808,7 +808,7 @@ class SecurityHub:
 
         attributes = [framework_to_finding_attribute(framework) for framework in frameworks]
         return [finding for finding in findings
-                if any([getattr(finding, attribute) for attribute in attributes])]
+                if any(getattr(finding, attribute) for attribute in attributes)]
 
     def get_findings(self, query_filter):
         """Retrieves findings from security hub based on a provided query.
@@ -933,7 +933,7 @@ class SecurityHub:
         return client.list_enabled_products_for_import().get('ProductSubscriptions', [])
 
 
-class DataExporter:  # pylint: disable=too-few-public-methods
+class DataExporter:
     """Export AWS security data."""
 
     #  pylint: disable=too-many-arguments
@@ -970,7 +970,7 @@ class DataExporter:  # pylint: disable=too-few-public-methods
             path.mkdir()
         except FileExistsError:
             self._logger.debug(f'Directory {directory} already exists.')
-        with open(path.joinpath(filename), 'w') as jsonfile:
+        with open(path.joinpath(filename), 'w', encoding='utf-8') as jsonfile:
             jsonfile.write(data)
         self._logger.info(f'File {filename} copied to {directory}')
 
@@ -989,7 +989,7 @@ class DataExporter:  # pylint: disable=too-few-public-methods
         self._logger.info(f'File {filename} copied to {s3_url}')
 
 
-class DataFileFactory:  # pylint: disable=too-few-public-methods
+class DataFileFactory:
     """Data export factory to handle the different data types returned."""
 
     #  pylint: disable=too-many-arguments, unused-argument

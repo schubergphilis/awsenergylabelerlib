@@ -50,7 +50,7 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class ZoneEnergyLabelingData:  # pylint: disable=too-few-public-methods
+class ZoneEnergyLabelingData:
     """Models the data for energy labeling to export."""
 
     def __init__(self, filename, name, energy_label):
@@ -66,7 +66,7 @@ class ZoneEnergyLabelingData:  # pylint: disable=too-few-public-methods
                           indent=2, default=str)
 
 
-class SecurityHubFindingsData:  # pylint: disable=too-few-public-methods
+class SecurityHubFindingsData:
     """Models the data for energy labeling to export."""
 
     def __init__(self, filename, security_hub_findings):
@@ -98,7 +98,7 @@ class SecurityHubFindingsData:  # pylint: disable=too-few-public-methods
                            for finding in self._security_hub_findings], indent=2, default=str)
 
 
-class SecurityHubFindingsResourcesData:  # pylint: disable=too-few-public-methods
+class SecurityHubFindingsResourcesData:
     """Models the data for energy labeling to export."""
 
     def __init__(self, filename, security_hub_findings):
@@ -117,7 +117,7 @@ class SecurityHubFindingsResourcesData:  # pylint: disable=too-few-public-method
                           indent=2, default=str)
 
 
-class SecurityHubFindingsTypesData:  # pylint: disable=too-few-public-methods
+class SecurityHubFindingsTypesData:
     """Models the data for energy labeling to export."""
 
     def __init__(self, filename, security_hub_findings):
@@ -158,7 +158,7 @@ class LabeledAccountData:
         return json.dumps(self.data, indent=2, default=str)
 
 
-class LabeledAccountsData:  # pylint: disable=too-few-public-methods
+class LabeledAccountsData:
     """Models the data for energy labeling to export."""
 
     def __init__(self, filename, labeled_accounts):
@@ -172,7 +172,7 @@ class LabeledAccountsData:  # pylint: disable=too-few-public-methods
                            for account in self._labeled_accounts], indent=2, default=str)
 
 
-class Metadata:  # pylint: disable=too-few-public-methods
+class Metadata:
     """Models the data for execution metadata to export."""
 
     def __init__(self, filename, metadata):
