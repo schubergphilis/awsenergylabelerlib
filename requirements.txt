@@ -7,7 +7,7 @@
 #
 # Please use Pipfile to update the requirements.
 #
-boto3>=1.26.84
+boto3>=1.26.88
 schema>=0.7.5
 cachetools>=5.3.0
 opnieuw>=1.2.0
