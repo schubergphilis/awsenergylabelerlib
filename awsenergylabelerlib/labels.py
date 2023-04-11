@@ -49,7 +49,7 @@ LOGGER = logging.getLogger(LOGGER_BASENAME)
 LOGGER.addHandler(logging.NullHandler())
 
 
-@dataclass
+@dataclass(frozen=True)
 class ZoneEnergyLabel:
     """Models the zone energy label."""
 
@@ -60,7 +60,7 @@ class ZoneEnergyLabel:
     coverage: float
 
 
-@dataclass
+@dataclass(frozen=True)
 class AccountEnergyLabel:
     """Models the account energy label."""
 
