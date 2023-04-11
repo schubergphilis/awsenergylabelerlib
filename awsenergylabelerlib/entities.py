@@ -38,7 +38,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from collections import Counter
 from copy import copy, deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, urljoin
@@ -383,18 +383,18 @@ class AuditZone(Zone):
         return accounts
 
 
-@dataclass
+@dataclass(frozen=True)
 class AwsAccount:
     """Models the aws account that can label itself."""
 
     id: str  # pylint: disable=invalid-name
-    account_thresholds: list
+    account_thresholds: field(default_factory=list)
     name: str = 'NOT_RETRIEVED'
     energy_label: AccountEnergyLabel = AccountEnergyLabel()
     _alias: str = None
 
     def __post_init__(self):
-        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        super().__setattr__('_logger', logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}'))
 
     @property
     def alias(self):
@@ -474,14 +474,14 @@ class AwsAccount:
         return self.energy_label
 
 
-@dataclass
+@dataclass(frozen=True)
 class Finding:
     """Models a finding."""
 
     _data: dict
 
     def __post_init__(self):
-        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        super().__setattr__('_logger', logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}'))
 
     def __hash__(self):
         return hash(self.id)
