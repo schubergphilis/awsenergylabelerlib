@@ -394,7 +394,7 @@ class AwsAccount:
     _alias: str = None
 
     def __post_init__(self):
-        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        super().__setattr__('_logger', logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}'))
 
     @property
     def alias(self):
@@ -481,7 +481,7 @@ class Finding:
     _data: dict
 
     def __post_init__(self):
-        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
+        super().__setattr__('_logger', logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}'))
 
     def __hash__(self):
         return hash(self.id)
