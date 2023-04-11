@@ -192,3 +192,9 @@ History
 ------------------
 
 * Updated dependencies
+
+
+3.2.2 (11-04-2023)
+------------------
+
+* Convert Dataclasses to Frozen for compatibility with latest python.
