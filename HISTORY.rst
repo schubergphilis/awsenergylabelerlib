@@ -198,3 +198,9 @@ History
 ------------------
 
 * Convert Dataclasses to Frozen for compatibility with latest python.
+
+
+3.2.3 (13-04-2023)
+------------------
+
+* Changed from dataclass to normal.
