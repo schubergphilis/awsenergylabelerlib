@@ -388,13 +388,14 @@ class AwsAccount:
     id: str
     account_thresholds: list
     name: str
-    energy_label: AccountEnergyLabel = AccountEnergyLabel
+    energy_label: AccountEnergyLabel
     _alias: str = None
 
     def __init__(self, id_: str, account_thresholds: list, name='NOT_RETRIEVED') -> None:
         self.id = id_
         self.account_thresholds = account_thresholds
         self.name = name
+        self.energy_label = AccountEnergyLabel()
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
     @property
