@@ -31,14 +31,12 @@ Import all parts from entities here
 .. _Google Python Style Guide:
    http://google.github.io/styleguide/pyguide.html
 """
-# pylint: disable=too-many-lines
 
 import logging
 import tempfile
 from abc import ABC, abstractmethod
 from collections import Counter
 from copy import copy, deepcopy
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, urljoin
@@ -383,18 +381,16 @@ class AuditZone(Zone):
         return accounts
 
 
-@dataclass(frozen=True)
 class AwsAccount:
     """Models the aws account that can label itself."""
 
-    id: str  # pylint: disable=invalid-name
-    account_thresholds: field(default_factory=list)
-    name: str = 'NOT_RETRIEVED'
-    energy_label: AccountEnergyLabel = AccountEnergyLabel()
-    _alias: str = None
-
-    def __post_init__(self):
-        super().__setattr__('_logger', logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}'))
+    def __init__(self, id_: str, account_thresholds: list, name='NOT_RETRIEVED') -> None:
+        self.id = id_
+        self.account_thresholds = account_thresholds
+        self.name = name
+        self._alias = None
+        self.energy_label = AccountEnergyLabel()
+        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
     @property
     def alias(self):
@@ -474,14 +470,12 @@ class AwsAccount:
         return self.energy_label
 
 
-@dataclass(frozen=True)
 class Finding:
     """Models a finding."""
 
-    _data: dict
-
-    def __post_init__(self):
-        super().__setattr__('_logger', logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}'))
+    def __init__(self, data: dict) -> None:
+        self._data = data
+        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
     def __hash__(self):
         return hash(self.id)
