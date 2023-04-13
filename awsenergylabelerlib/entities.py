@@ -31,7 +31,6 @@ Import all parts from entities here
 .. _Google Python Style Guide:
    http://google.github.io/styleguide/pyguide.html
 """
-# pylint: disable=too-many-lines
 
 import logging
 import tempfile
@@ -384,6 +383,7 @@ class AuditZone(Zone):
 
 class AwsAccount:
     """Models the aws account that can label itself."""
+
     def __init__(self, id_: str, account_thresholds: list, name='NOT_RETRIEVED') -> None:
         self.id = id_
         self.account_thresholds = account_thresholds
@@ -472,6 +472,7 @@ class AwsAccount:
 
 class Finding:
     """Models a finding."""
+
     def __init__(self, data: dict) -> None:
         self._data = data
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
