@@ -383,26 +383,29 @@ class AuditZone(Zone):
         return accounts
 
 
-@dataclass(frozen=True)
+
 class AwsAccount:
     """Models the aws account that can label itself."""
 
     id: str  # pylint: disable=invalid-name
     account_thresholds: field(default_factory=list)
     name: str = 'NOT_RETRIEVED'
-    energy_label: AccountEnergyLabel = AccountEnergyLabel()
+    energy_label: AccountEnergyLabel = field(default_factory=AccountEnergyLabel)
     _alias: str = None
 
-    def __post_init__(self):
-        super().__setattr__('_logger', logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}'))
+    def __init__(self, id: str, account_thresholds: list, name: str) -> None:
+        self.id = id
+        self.account_thresholds = account_thresholds
+        self.name = name
+        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
     @property
     def alias(self):
         """Alias."""
         if self._alias is None:
-            super().__setattr__('_alias', '')
+            self._alias = ''
             try:
-                 super().__setattr__('_alias', boto3.client('iam').list_account_aliases()['AccountAliases'][0])
+                self._alias = boto3.client('iam').list_account_aliases()['AccountAliases'][0]
             except IndexError:
                 LOGGER.debug(f'Alias for account {self.id} is not set.')
             except botocore.exceptions.ClientError as msg:
@@ -429,7 +432,7 @@ class AwsAccount:
                 open_days_counter[finding.days_open] += 1
         if not counted_findings:
             self._logger.info(f'No findings for account {self.id}')
-            super().__setattr__('energy_label', AccountEnergyLabel('A', 0, 0, 0, 0, 0))
+            self.energy_label = AccountEnergyLabel('A', 0, 0, 0, 0, 0)
             return self.energy_label
         try:
             number_of_critical_findings = counted_findings.get('CRITICAL', 0)
@@ -452,36 +455,37 @@ class AwsAccount:
                         number_of_medium_findings <= threshold['medium'],
                         number_of_low_findings <= threshold['low'],
                         max_days_open < threshold['days_open_less_than']]):
-                    super().__setattr__('energy_label', AccountEnergyLabel(threshold['label'],
-                                                                           number_of_critical_findings,
-                                                                           number_of_high_findings,
-                                                                           number_of_medium_findings,
-                                                                           number_of_low_findings,
-                                                                           max_days_open))
+                    self.energy_label = AccountEnergyLabel(threshold['label'],
+                                                           number_of_critical_findings,
+                                                           number_of_high_findings,
+                                                           number_of_medium_findings,
+                                                           number_of_low_findings,
+                                                           max_days_open)
                     self._logger.debug(f'Energy Label for account {self.id} '
                                        f'has been calculated: {self.energy_label.label}')
                     break
             else:
                 self._logger.debug('No match with thresholds for energy label, using default worst one.')
-                super().__setattr__('energy_label', AccountEnergyLabel('F',
-                                                                       number_of_critical_findings,
-                                                                       number_of_high_findings,
-                                                                       number_of_medium_findings,
-                                                                       number_of_low_findings,
-                                                                       max_days_open))
+                self.energy_label = AccountEnergyLabel('F',
+                                                       number_of_critical_findings,
+                                                       number_of_high_findings,
+                                                       number_of_medium_findings,
+                                                       number_of_low_findings,
+                                                       max_days_open)
         except Exception:  # pylint: disable=broad-except
             self._logger.warning(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
 
 
-@dataclass(frozen=True)
+
 class Finding:
     """Models a finding."""
 
     _data: dict
 
-    def __post_init__(self):
-        super().__setattr__('_logger', logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}'))
+    def __init__(self, data: dict) -> None:
+        self._data = data
+        self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
 
     def __hash__(self):
         return hash(self.id)
