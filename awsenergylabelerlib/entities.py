@@ -385,10 +385,6 @@ class AuditZone(Zone):
 class AwsAccount:
     """Models the aws account that can label itself."""
 
-    id: str
-    account_thresholds: list
-    name: str
-    energy_label: AccountEnergyLabel
     _alias: str = None
 
     def __init__(self, id_: str, account_thresholds: list, name='NOT_RETRIEVED') -> None:
@@ -478,9 +474,6 @@ class AwsAccount:
 
 class Finding:
     """Models a finding."""
-
-    _data: dict
-
     def __init__(self, data: dict) -> None:
         self._data = data
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
