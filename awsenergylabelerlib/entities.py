@@ -38,7 +38,6 @@ import tempfile
 from abc import ABC, abstractmethod
 from collections import Counter
 from copy import copy, deepcopy
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, urljoin
@@ -383,18 +382,17 @@ class AuditZone(Zone):
         return accounts
 
 
-
 class AwsAccount:
     """Models the aws account that can label itself."""
 
-    id: str  # pylint: disable=invalid-name
-    account_thresholds: field(default_factory=list)
-    name: str = 'NOT_RETRIEVED'
-    energy_label: AccountEnergyLabel = field(default_factory=AccountEnergyLabel)
+    id: str
+    account_thresholds: list
+    name: str
+    energy_label: AccountEnergyLabel = AccountEnergyLabel
     _alias: str = None
 
-    def __init__(self, id: str, account_thresholds: list, name: str) -> None:
-        self.id = id
+    def __init__(self, id_: str, account_thresholds: list, name='NOT_RETRIEVED') -> None:
+        self.id = id_
         self.account_thresholds = account_thresholds
         self.name = name
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
@@ -475,7 +473,6 @@ class AwsAccount:
         except Exception:  # pylint: disable=broad-except
             self._logger.warning(f'Could not calculate energy label for account {self.id}, using the default "F"')
         return self.energy_label
-
 
 
 class Finding:
