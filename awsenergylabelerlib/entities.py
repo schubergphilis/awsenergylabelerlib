@@ -33,7 +33,6 @@ Import all parts from entities here
 """
 
 import logging
-import tempfile
 from abc import ABC, abstractmethod
 from collections import Counter
 from copy import copy, deepcopy
