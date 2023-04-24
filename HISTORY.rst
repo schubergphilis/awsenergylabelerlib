@@ -204,3 +204,9 @@ History
 ------------------
 
 * Changed from dataclass to normal.
+
+
+3.2.4 (24-04-2023)
+------------------
+
+* Writing to S3 now does not attempt to write to a temporary file first, accomodating read-only filesystems when only writing to S3.
