@@ -33,7 +33,6 @@ Import all parts from entities here
 """
 
 import logging
-import tempfile
 from abc import ABC, abstractmethod
 from collections import Counter
 from copy import copy, deepcopy
@@ -974,12 +973,10 @@ class DataExporter:
         parsed_url = urlparse(s3_url)
         bucket_name = parsed_url.netloc
         dst_path = parsed_url.path
-        with tempfile.NamedTemporaryFile() as temp_file:
-            temp_file.write(data.encode('utf-8'))
-            temp_file.flush()
-            dst_filename = urljoin(dst_path, filename).lstrip("/")
-            s3.upload_file(temp_file.name, bucket_name, dst_filename)
-            temp_file.close()
+
+        dst_filename = urljoin(dst_path, filename).lstrip("/")
+        s3.put_object(Body=data.encode('utf-8'), Bucket=bucket_name, Key=dst_filename)
+
         self._logger.info(f'File {filename} copied to {s3_url}')
 
 
