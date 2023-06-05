@@ -105,8 +105,11 @@ DEFAULT_SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
                                'RecordState': [{'Value': 'ARCHIVED',
                                                 'Comparison': 'NOT_EQUALS'}]}
 
-# "aws-foundational-security-best-practices", "cis-aws-foundations-benchmark", "nist-800-53", "pci-dss"
-DEFAULT_SECURITY_HUB_FRAMEWORKS = {'aws-foundational-security-best-practices'}
+AWS_FOUNDATIONAL_SECURITY_FRAMEWORK = 'aws-foundational-security-best-practices'
+CIS_AWS_FOUNDATION_FRAMEWORK = 'cis-aws-foundations-benchmark'
+NIST_800_53_FRAMEWORK = 'nist-800-53'
+PCI_DSS_FRAMEWORK = 'pci-dss'
+DEFAULT_SECURITY_HUB_FRAMEWORKS = {AWS_FOUNDATIONAL_SECURITY_FRAMEWORK}
 
 
 def get_available_security_hub_regions():

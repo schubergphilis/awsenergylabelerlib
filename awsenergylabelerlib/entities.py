@@ -55,11 +55,14 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             AccountsNotPartOfZone,
                                             InvalidPath,
                                             InvalidRegion)
-from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
+from .configuration import (ACCOUNT_THRESHOLDS,
+                            AWS_FOUNDATIONAL_SECURITY_FRAMEWORK,
+                            CIS_AWS_FOUNDATION_FRAMEWORK,
+                            DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
-                            ZONE_THRESHOLDS,
-                            ACCOUNT_THRESHOLDS,
-                            FILE_EXPORT_TYPES)
+                            FILE_EXPORT_TYPES,
+                            PCI_DSS_FRAMEWORK,
+                            ZONE_THRESHOLDS)
 from .labels import AccountEnergyLabel, ZoneEnergyLabel
 from .validations import validate_allowed_denied_account_ids, validate_allowed_denied_regions, DestinationPath
 
@@ -564,17 +567,17 @@ class Finding:
     @property
     def is_cis(self):
         """Is this cis framework finding."""
-        return 'cis-aws-foundations-benchmark' in self.compliance_frameworks
+        return CIS_AWS_FOUNDATION_FRAMEWORK in self.compliance_frameworks
 
     @property
     def is_pci_dss(self):
         """Is this pci dss framework finding."""
-        return 'pci-dss' in self.compliance_frameworks
+        return PCI_DSS_FRAMEWORK in self.compliance_frameworks
 
     @property
     def is_aws_foundational_security_best_practices(self):
         """Is this aws foundational security best practices framework finding."""
-        return 'aws-foundational-security-best-practices' in self.compliance_frameworks
+        return AWS_FOUNDATIONAL_SECURITY_FRAMEWORK in self.compliance_frameworks
 
     @property
     def workflow_status(self):
