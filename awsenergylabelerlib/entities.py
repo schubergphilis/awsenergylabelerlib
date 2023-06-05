@@ -588,8 +588,8 @@ class Finding:
 
     @property
     def compliance_standards(self):
-        """Compliance frameworks."""
-        return self._data.get('Compliance', {}).get('AssociatedStandards', [])
+        """Compliance standards."""
+        return [standard.get('StandardsId') for standard in self._data.get('Compliance').get('AssociatedStandards', [])]
 
     @property
     def compliance_frameworks(self):
@@ -610,11 +610,6 @@ class Finding:
     def compliance_control(self):
         """Compliance control."""
         return self._data.get('Compliance Control')
-
-    @property
-    def compliance_standards(self):
-        """Compliance standards."""
-        return [standard.get('StandardsId') for standard in self._data.get('Compliance').get('AssociatedStandards', [])]
 
     @property
     def first_observed_at(self):
