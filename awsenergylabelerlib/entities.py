@@ -679,7 +679,7 @@ class Finding:
 class SecurityHub:
     """Models security hub and can retrieve findings."""
 
-    frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
+    frameworks = {AWS_FOUNDATIONAL_SECURITY_FRAMEWORK, CIS_AWS_FOUNDATION_FRAMEWORK, PCI_DSS_FRAMEWORK}
 
     def __init__(self, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
