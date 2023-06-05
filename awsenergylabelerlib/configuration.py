@@ -105,7 +105,7 @@ DEFAULT_SECURITY_HUB_FILTER = {'UpdatedAt': [{'DateRange': {'Value': 7,
                                'RecordState': [{'Value': 'ARCHIVED',
                                                 'Comparison': 'NOT_EQUALS'}]}
 
-DEFAULT_SECURITY_HUB_FRAMEWORKS = {'aws-foundational-security-best-practices'}
+DEFAULT_SECURITY_HUB_FRAMEWORKS = {'aws-foundational-security-best-practices'}  # cis-aws-foundations-benchmark,
 
 
 def get_available_security_hub_regions():

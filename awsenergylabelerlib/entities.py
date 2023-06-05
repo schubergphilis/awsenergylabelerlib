@@ -564,17 +564,17 @@ class Finding:
     @property
     def is_cis(self):
         """Is this cis framework finding."""
-        return 'cis-aws' in self.generator_id
+        return 'cis-aws-foundations-benchmark' in self.compliance_frameworks
 
     @property
     def is_pci_dss(self):
         """Is this pci dss framework finding."""
-        return 'pci-dss/' in self.generator_id
+        return 'pci-dss' in self.compliance_frameworks
 
     @property
     def is_aws_foundational_security_best_practices(self):
         """Is this aws foundational security best practices framework finding."""
-        return 'aws-foundational-security-best-practices' in self.generator_id
+        return 'aws-foundational-security-best-practices' in self.compliance_frameworks
 
     @property
     def workflow_status(self):
@@ -587,12 +587,14 @@ class Finding:
         return self._data.get('RecordState')
 
     @property
-    def compliance_framework(self):
-        """Compliance framework."""
-        return 'aws-foundational-security-best-practices' if self.is_aws_foundational_security_best_practices \
-            else 'cis-aws' if self.is_cis \
-            else 'pci-dss' if self.is_pci_dss \
-            else ''
+    def compliance_standards(self):
+        """Compliance frameworks."""
+        return self._data.get('Compliance', {}).get('AssociatedStandards', [])
+
+    @property
+    def compliance_frameworks(self):
+        """Compliance frameworks."""
+        return [standard.split('/')[1] for standard in self.compliance_standards]
 
     @property
     def rule_id(self):
@@ -608,6 +610,11 @@ class Finding:
     def compliance_control(self):
         """Compliance control."""
         return self._data.get('Compliance Control')
+
+    @property
+    def compliance_standards(self):
+        """Compliance standards."""
+        return [standard.get('StandardsId') for standard in self._data.get('Compliance').get('AssociatedStandards', [])]
 
     @property
     def first_observed_at(self):
