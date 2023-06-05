@@ -565,7 +565,7 @@ class Finding:
         return self._data.get('Types')
 
     @property
-    def is_cis(self):
+    def is_cis_aws_foundations_benchmark(self):
         """Is this cis framework finding."""
         return CIS_AWS_FOUNDATION_FRAMEWORK in self.compliance_frameworks
 
