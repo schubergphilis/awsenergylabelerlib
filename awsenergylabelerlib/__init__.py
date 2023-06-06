@@ -44,7 +44,10 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             UnableToRetrieveSecurityHubRegions,
                                             InvalidRegion,
                                             UnsupportedZoneType)
-from .configuration import (ALL_ZONE_EXPORT_TYPES,
+from .configuration import (AWS_FOUNDATIONAL_SECURITY_FRAMEWORK,
+                            CIS_AWS_FOUNDATION_FRAMEWORK,
+                            PCI_DSS_FRAMEWORK,
+                            ALL_ZONE_EXPORT_TYPES,
                             ALL_ACCOUNT_EXPORT_TYPES,
                             DATA_EXPORT_TYPES,
                             ACCOUNT_METRIC_EXPORT_TYPES,
@@ -94,6 +97,9 @@ assert UnableToRetrieveSecurityHubRegions
 assert InvalidRegion
 assert UnsupportedZoneType
 
+assert AWS_FOUNDATIONAL_SECURITY_FRAMEWORK
+assert CIS_AWS_FOUNDATION_FRAMEWORK
+assert PCI_DSS_FRAMEWORK
 assert ALL_ZONE_EXPORT_TYPES
 assert ALL_ACCOUNT_EXPORT_TYPES
 assert DATA_EXPORT_TYPES

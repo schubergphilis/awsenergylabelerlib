@@ -88,7 +88,7 @@ class SecurityHubFindingsData:
                             'Description': finding.description,
                             'Remediation Text': finding.remediation_recommendation_text,
                             'Remediation Url': finding.remediation_recommendation_url,
-                            'Compliance Framework': finding.compliance_framework,
+                            'Compliance Frameworks': finding.compliance_frameworks,
                             'Rule ID': finding.rule_id,
                             'Compliance Status': finding.compliance_status,
                             'Workflow State': finding.workflow_status,

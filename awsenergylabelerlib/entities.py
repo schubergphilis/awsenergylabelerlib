@@ -55,11 +55,14 @@ from .awsenergylabelerlibexceptions import (InvalidFrameworks,
                                             AccountsNotPartOfZone,
                                             InvalidPath,
                                             InvalidRegion)
-from .configuration import (DEFAULT_SECURITY_HUB_FRAMEWORKS,
+from .configuration import (ACCOUNT_THRESHOLDS,
+                            AWS_FOUNDATIONAL_SECURITY_FRAMEWORK,
+                            CIS_AWS_FOUNDATION_FRAMEWORK,
+                            DEFAULT_SECURITY_HUB_FRAMEWORKS,
                             DEFAULT_SECURITY_HUB_FILTER,
-                            ZONE_THRESHOLDS,
-                            ACCOUNT_THRESHOLDS,
-                            FILE_EXPORT_TYPES)
+                            FILE_EXPORT_TYPES,
+                            PCI_DSS_FRAMEWORK,
+                            ZONE_THRESHOLDS)
 from .labels import AccountEnergyLabel, ZoneEnergyLabel
 from .validations import validate_allowed_denied_account_ids, validate_allowed_denied_regions, DestinationPath
 
@@ -562,19 +565,19 @@ class Finding:
         return self._data.get('Types')
 
     @property
-    def is_cis(self):
+    def is_cis_aws_foundations_benchmark(self):
         """Is this cis framework finding."""
-        return 'cis-aws' in self.generator_id
+        return CIS_AWS_FOUNDATION_FRAMEWORK in self.compliance_frameworks
 
     @property
     def is_pci_dss(self):
         """Is this pci dss framework finding."""
-        return 'pci-dss/' in self.generator_id
+        return PCI_DSS_FRAMEWORK in self.compliance_frameworks
 
     @property
     def is_aws_foundational_security_best_practices(self):
         """Is this aws foundational security best practices framework finding."""
-        return 'aws-foundational-security-best-practices' in self.generator_id
+        return AWS_FOUNDATIONAL_SECURITY_FRAMEWORK in self.compliance_frameworks
 
     @property
     def workflow_status(self):
@@ -587,12 +590,14 @@ class Finding:
         return self._data.get('RecordState')
 
     @property
-    def compliance_framework(self):
-        """Compliance framework."""
-        return 'aws-foundational-security-best-practices' if self.is_aws_foundational_security_best_practices \
-            else 'cis-aws' if self.is_cis \
-            else 'pci-dss' if self.is_pci_dss \
-            else ''
+    def compliance_standards(self):
+        """Compliance standards."""
+        return [standard.get('StandardsId') for standard in self._data.get('Compliance').get('AssociatedStandards', [])]
+
+    @property
+    def compliance_frameworks(self):
+        """Compliance frameworks."""
+        return [standard.split('/')[1] for standard in self.compliance_standards]
 
     @property
     def rule_id(self):
@@ -674,7 +679,7 @@ class Finding:
 class SecurityHub:
     """Models security hub and can retrieve findings."""
 
-    frameworks = {'cis', 'pci-dss', 'aws-foundational-security-best-practices'}
+    frameworks = {AWS_FOUNDATIONAL_SECURITY_FRAMEWORK, CIS_AWS_FOUNDATION_FRAMEWORK, PCI_DSS_FRAMEWORK}
 
     def __init__(self, region=None, allowed_regions=None, denied_regions=None):
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
