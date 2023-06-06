@@ -210,3 +210,9 @@ History
 ------------------
 
 * Writing to S3 now does not attempt to write to a temporary file first, accomodating read-only filesystems when only writing to S3.
+
+
+4.0.0 (06-06-2023)
+------------------
+
+* Implement support for finding consolidation.
