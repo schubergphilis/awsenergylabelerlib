@@ -97,6 +97,9 @@ assert UnableToRetrieveSecurityHubRegions
 assert InvalidRegion
 assert UnsupportedZoneType
 
+assert AWS_FOUNDATIONAL_SECURITY_FRAMEWORK
+assert CIS_AWS_FOUNDATION_FRAMEWORK
+assert PCI_DSS_FRAMEWORK
 assert ALL_ZONE_EXPORT_TYPES
 assert ALL_ACCOUNT_EXPORT_TYPES
 assert DATA_EXPORT_TYPES
