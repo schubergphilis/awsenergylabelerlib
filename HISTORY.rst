@@ -216,3 +216,9 @@ History
 ------------------
 
 * Implement support for finding consolidation.
+
+
+5.0.0 (01-12-2023)
+------------------
+
+* Remove alias functionality since it was not working properly.
