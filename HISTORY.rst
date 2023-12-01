@@ -222,3 +222,9 @@ History
 ------------------
 
 * Remove alias functionality since it was not working properly.
+
+
+5.0.1 (01-12-2023)
+------------------
+
+* Fix upload mechanism and bump dependency versions.
