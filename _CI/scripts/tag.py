@@ -48,8 +48,8 @@ def check_branch():
     git = Git()
     if git.get_current_branch() not in BRANCHES_SUPPORTED_FOR_TAG:
         accepted_branches = ', '.join(BRANCHES_SUPPORTED_FOR_TAG)
-        print("Tagging is only supported on {} "
-              "you should not tag any other branch, exiting!".format(accepted_branches))
+        print(f"Tagging is only supported on {accepted_branches} "
+              "you should not tag any other branch, exiting!")
         raise SystemExit(1)
 
 

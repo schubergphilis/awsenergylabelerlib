@@ -69,10 +69,6 @@ class Package:
         version = '*'
         if full_version == '*':
             return comparator, version
-        # We need to check for the most common pinning cases
-        # >, <, <=, >=, ~=, ==
-        # So we can know where the pin starts and where it ends,
-        # iteration should start from 2 character then backwards
         operators = ['<=', '>=', '~=', '==', '<', '>']
         for operator in operators:
             if full_version.startswith(operator):
