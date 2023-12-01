@@ -144,7 +144,7 @@ class LabeledAccountData:
     def data(self):
         """Data of an account to export."""
         return {'Account ID': self._labeled_account.id,
-                'Account Name (or alias if set)': self._labeled_account.alias or self._labeled_account.name,
+                'Account Name': self._labeled_account.name,
                 'Number of critical findings': self._labeled_account.energy_label.number_of_critical_findings,
                 'Number of high findings': self._labeled_account.energy_label.number_of_high_findings,
                 'Number of medium findings': self._labeled_account.energy_label.number_of_medium_findings,

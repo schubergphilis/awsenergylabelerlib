@@ -390,23 +390,8 @@ class AwsAccount:
         self.id = id_
         self.account_thresholds = account_thresholds
         self.name = name
-        self._alias = None
         self.energy_label = AccountEnergyLabel()
         self._logger = logging.getLogger(f'{LOGGER_BASENAME}.{self.__class__.__name__}')
-
-    @property
-    def alias(self):
-        """Alias."""
-        if self._alias is None:
-            self._alias = ''
-            try:
-                self._alias = boto3.client('iam').list_account_aliases()['AccountAliases'][0]
-            except IndexError:
-                LOGGER.debug(f'Alias for account {self.id} is not set.')
-            except botocore.exceptions.ClientError as msg:
-                LOGGER.warning(f'Alias for account {self.id} could not be retrieved with message {msg}, '
-                               f'no alias will be set.')
-        return self._alias
 
     def calculate_energy_label(self, findings):
         """Calculates the energy label for the account.
